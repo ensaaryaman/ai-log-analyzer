@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<!-- Spring Boot ana (parent) POM: tüm Spring bağımlılıklarının sürümlerini uyumlu biçimde yönetir (BOM).
+	     3.4.7, Maven Central'da mevcut kararlı bir sürümdür ve Spring AI 1.0.x ile en iyi uyumu sağlar. -->
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.4.7</version>
+		<relativePath/> <!-- parent'ı yerelden değil depodan çöz -->
+	</parent>
+
+	<groupId>com.ailoganalyzer</groupId>
+	<artifactId>ai-log-analyzer</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>ai-log-analyzer</name>
+	<description>Yapay zeka ile log analizi yapan web uygulaması</description>
+
+	<properties>
+		<java.version>21</java.version> <!-- Derleme ve çalışma hedefi Java 21 (LTS) -->
+	</properties>
+
+	<dependencies>
+		<!-- Web katmanı: REST controller'lar, gömülü Tomcat, JSON (Jackson) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<!-- Kalıcılık: JPA + Hibernate + Spring Data repository altyapısı -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+
+		<!-- Doğrulama: @Valid, @NotNull gibi Jakarta Bean Validation anotasyonları -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
+		<!-- Actuator: health/info gibi izleme uçları -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<!-- Flyway: versiyonlu veritabanı migration'ları (şemanın tek doğruluk kaynağı) -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId> <!-- Flyway'in PostgreSQL desteği -->
+		</dependency>
+
+		<!-- PostgreSQL JDBC sürücüsü: yalnızca çalışma zamanında gerekir -->
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Lombok: getter/setter/constructor gibi boilerplate'i derleme anında üretir (yalnızca derleme zamanı) -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<!-- ==== Test bağımlılıkları ==== -->
+		<!-- JUnit 5, Mockito, AssertJ, Spring Test'i tek pakette getirir -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- Testcontainers'ı Spring Boot ile entegre eder (@ServiceConnection) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>postgresql</artifactId> <!-- Testlerde gerçek PostgreSQL'i Docker ile ayağa kaldırır -->
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<!-- Çalıştırılabilir jar üretir; Lombok'u paketten hariç tutar (yalnızca derlemede gerekli) -->
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+			<!-- Lombok'u anotasyon işlemcisi olarak derleyiciye tanıtır (getter/setter üretimi için) -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
