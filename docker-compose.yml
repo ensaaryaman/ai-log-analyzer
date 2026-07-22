@@ -1,0 +1,24 @@
+# AI Log Analyzer — yerel geliştirme altyapısı.
+# Tek komutla PostgreSQL ayağa kalkar: `docker compose up -d`
+# Böylece projeyi değerlendiren kişinin elle veritabanı kurmasına gerek kalmaz.
+
+services:
+  postgres:
+    image: postgres:16                     # Sabit ana sürüm: tekrarlanabilir kurulum (latest yerine pin'lendi)
+    container_name: loganalyzer-postgres
+    environment:
+      POSTGRES_DB: loganalyzer              # Uygulamanın bağlanacağı veritabanı adı
+      POSTGRES_USER: loganalyzer            # DB kullanıcısı (application.yml ile aynı olmalı)
+      POSTGRES_PASSWORD: loganalyzer        # Yerel şifre — üretimde .env'den override edilir
+    ports:
+      - "5432:5432"                         # Host:Container — uygulama localhost:5432 üzerinden erişir
+    volumes:
+      - loganalyzer-pgdata:/var/lib/postgresql/data   # Veri kalıcılığı: container silinse de veriler durur
+    healthcheck:                            # Uygulama, DB "hazır" olmadan bağlanmaya çalışmasın diye
+      test: ["CMD-SHELL", "pg_isready -U loganalyzer -d loganalyzer"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  loganalyzer-pgdata:                       # Adlandırılmış volume — veriyi container yaşam döngüsünden ayırır

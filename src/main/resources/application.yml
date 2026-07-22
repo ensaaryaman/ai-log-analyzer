@@ -1,0 +1,42 @@
+# AI Log Analyzer — ana uygulama yapılandırması.
+# Değerler ${ENV:varsayılan} biçiminde: ortam değişkeni varsa onu, yoksa yerel varsayılanı kullanır.
+# Bu sayede hem yerel geliştirme (docker-compose) hem de farklı ortamlar tek dosyayla desteklenir.
+
+spring:
+  application:
+    name: ai-log-analyzer
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/loganalyzer}
+    username: ${DB_USERNAME:loganalyzer}
+    password: ${DB_PASSWORD:loganalyzer}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate          # Şemayı Hibernate DEĞİL Flyway yönetir; Hibernate yalnızca eşlemeleri doğrular (drift'i erken yakalar)
+    open-in-view: false           # İyi pratik: Lazy yükleme view katmanına sızmasın, DB oturumu servis katmanında kapansın
+    properties:
+      hibernate:
+        format_sql: true          # Loglanan SQL'i okunaklı biçimlendirir (geliştirme kolaylığı)
+
+  flyway:
+    enabled: true                 # Uygulama açılışında versiyonlu migration'ları (V1, V2...) otomatik çalıştırır
+    baseline-on-migrate: true     # Mevcut/boş şemada ilk çalıştırmada güvenli başlangıç
+
+  servlet:
+    multipart:
+      max-file-size: 10MB         # Tek log dosyası üst sınırı — bellek ve token maliyetini kontrol altında tutar
+      max-request-size: 12MB      # Multipart istek toplam üst sınırı (dosya + meta için pay)
+
+# Uygulamaya özel ayarlar (@ConfigurationProperties ile StorageProperties'e bağlanır)
+app:
+  storage:
+    directory: ${STORAGE_DIR:./uploads}          # Yüklenen ham log dosyalarının diske yazılacağı klasör
+    allowed-extensions: log,txt                    # Kabul edilen dosya uzantıları (güvenlik + kapsam sınırı)
+
+# Actuator: yalnızca health ucunu aç (izleme için yeterli, gereksiz uçları dışarı açmayalım)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
