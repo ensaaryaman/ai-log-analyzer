@@ -3,9 +3,11 @@ package com.ailoganalyzer.controller;
 import com.ailoganalyzer.domain.LogLevel;
 import com.ailoganalyzer.dto.LogEntryResponse;
 import com.ailoganalyzer.dto.LogFileSummaryResponse;
+import com.ailoganalyzer.dto.StatsResponse;
 import com.ailoganalyzer.exception.InvalidFileException;
 import com.ailoganalyzer.exception.StorageException;
 import com.ailoganalyzer.service.LogFileService;
+import com.ailoganalyzer.service.StatsService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,10 +32,12 @@ import java.util.UUID;
 public class LogFileController {
 
     private final LogFileService logFileService;   // İş mantığı arayüzüne bağımlılık (somut sınıfa değil)
+    private final StatsService statsService;       // İstatistik hesaplama servisi (arayüz)
 
-    // Bağımlılık constructor ile enjekte edilir (Spring tek constructor'ı otomatik kullanır)
-    public LogFileController(LogFileService logFileService) {
+    // Bağımlılıklar constructor ile enjekte edilir (Spring tek constructor'ı otomatik kullanır)
+    public LogFileController(LogFileService logFileService, StatsService statsService) {
         this.logFileService = logFileService;
+        this.statsService = statsService;
     }
 
     // POST /api/logs — multipart form ile .log/.txt dosyası yükler ve parse özetini döner
@@ -77,5 +81,11 @@ public class LogFileController {
             @PathVariable UUID id,
             @RequestParam(value = "level", required = false) LogLevel level) {   // required=false: parametre verilmezse null → hepsi
         return logFileService.getEntries(id, level);
+    }
+
+    // GET /api/logs/{id}/stats — damıtılmış istatistikler (seviye dağılımı, hata grupları, zaman serisi)
+    @GetMapping("/{id}/stats")
+    public StatsResponse stats(@PathVariable UUID id) {
+        return statsService.computeStats(id);
     }
 }

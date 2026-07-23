@@ -1,8 +1,10 @@
 package com.ailoganalyzer.service.impl;
 
+import com.ailoganalyzer.distill.Fingerprinter;
 import com.ailoganalyzer.domain.LogEntry;
 import com.ailoganalyzer.domain.LogFile;
 import com.ailoganalyzer.domain.LogFileStatus;
+import com.ailoganalyzer.domain.LogLevel;
 import com.ailoganalyzer.parse.LogParser;
 import com.ailoganalyzer.parse.ParsedLine;
 import com.ailoganalyzer.parse.ParsedLog;
@@ -24,13 +26,16 @@ public class LogParsingServiceImpl implements LogParsingService {
     private final LogParser logParser;                 // Saf parse algoritması (arayüze bağlıyız)
     private final LogEntryRepository logEntryRepository;
     private final LogFileRepository logFileRepository;
+    private final Fingerprinter fingerprinter;         // Hata kayıtlarına parmak izi üretir (gruplama için)
 
     public LogParsingServiceImpl(LogParser logParser,
                                  LogEntryRepository logEntryRepository,
-                                 LogFileRepository logFileRepository) {
+                                 LogFileRepository logFileRepository,
+                                 Fingerprinter fingerprinter) {
         this.logParser = logParser;
         this.logEntryRepository = logEntryRepository;
         this.logFileRepository = logFileRepository;
+        this.fingerprinter = fingerprinter;
     }
 
     // Parse + kayıt tek transaction içinde: hata olursa entry'ler ve özet güncellemesi birlikte geri alınır
@@ -68,8 +73,17 @@ public class LogParsingServiceImpl implements LogParsingService {
         entry.setExceptionType(truncate(line.exceptionType(), 300));
         entry.setStackTrace(line.stackTrace());                    // stack_trace TEXT (sınırsız)
         entry.setLineNumber(line.lineNumber());
-        // fingerprint (tekrarlanan hata gruplama) Gün 3'te hesaplanacak → şimdilik null
+        // Parmak izini yalnızca "problem" kayıtları (WARN ve üzeri) için hesapla → tekrarlanan hata gruplama
+        if (isProblem(line.level())) {
+            entry.setFingerprint(fingerprinter.fingerprint(
+                    line.exceptionType(), line.message(), line.stackTrace()));
+        }
         return entry;
+    }
+
+    // Sadece WARN/ERROR/FATAL kayıtları gruplanmaya değer (INFO/DEBUG selini gruplamaya sokmayız)
+    private boolean isProblem(LogLevel level) {
+        return level != null && level.isAtLeast(LogLevel.WARN);
     }
 
     // Değeri en fazla 'max' karaktere kısaltır; tek bir uzun alan tüm yüklemeyi bozmasın diye (dayanıklılık)
