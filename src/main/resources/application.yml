@@ -28,6 +28,19 @@ spring:
       max-file-size: 10MB         # Tek log dosyası üst sınırı — bellek ve token maliyetini kontrol altında tutar
       max-request-size: 12MB      # Multipart istek toplam üst sınırı (dosya + meta için pay)
 
+  # --- Yapay Zeka (Spring AI, OpenAI-uyumlu istemci → Gemini'ye yönlendirildi) ---
+  ai:
+    openai:
+      api-key: ${GEMINI_API_KEY:not-configured}   # .env'den gelir; yoksa 'not-configured' (açılış patlamasın, mock için)
+      base-url: https://generativelanguage.googleapis.com/v1beta/openai   # Gemini'nin OpenAI-uyumlu uç noktası
+      chat:
+        completions-path: /chat/completions        # base-url ile birleşince tam Gemini uç noktası oluşur
+        options:
+          model: ${AI_MODEL:gemini-2.5-flash}       # Hızlı ve ücretsiz-dostu model (config'ten değiştirilebilir)
+          temperature: 0.2                          # Düşük sıcaklık → tutarlı, deterministik JSON çıktısı
+    retry:
+      max-attempts: 2                               # Geçici hatalarda 1 kez daha dene (dayanıklılık)
+
 # Uygulamaya özel ayarlar (@ConfigurationProperties ile StorageProperties'e bağlanır)
 app:
   storage:
