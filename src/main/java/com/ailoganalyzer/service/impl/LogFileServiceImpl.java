@@ -9,6 +9,7 @@ import com.ailoganalyzer.exception.InvalidFileException;
 import com.ailoganalyzer.exception.ResourceNotFoundException;
 import com.ailoganalyzer.repository.LogEntryRepository;
 import com.ailoganalyzer.repository.LogFileRepository;
+import com.ailoganalyzer.service.ErrorGroupingService;
 import com.ailoganalyzer.service.LogFileService;
 import com.ailoganalyzer.service.LogParsingService;
 import com.ailoganalyzer.storage.FileStorageService;
@@ -33,18 +34,21 @@ public class LogFileServiceImpl implements LogFileService {
     private final LogEntryRepository logEntryRepository;    // DB erişimi (parse edilmiş kayıtlar)
     private final StorageProperties storageProperties;     // İzin verilen uzantı gibi kuralları buradan okuruz
     private final LogParsingService logParsingService;     // Ham içeriği parse edip kaydeden servis (arayüz)
+    private final ErrorGroupingService errorGroupingService; // Parse sonrası tekrarlanan hataları gruplar (arayüz)
 
     // Tüm bağımlılıklar constructor ile enjekte edilir (final alanlar → değişmez, test edilebilir, açık bağımlılık)
     public LogFileServiceImpl(FileStorageService fileStorageService,
                               LogFileRepository logFileRepository,
                               LogEntryRepository logEntryRepository,
                               StorageProperties storageProperties,
-                              LogParsingService logParsingService) {
+                              LogParsingService logParsingService,
+                              ErrorGroupingService errorGroupingService) {
         this.fileStorageService = fileStorageService;
         this.logFileRepository = logFileRepository;
         this.logEntryRepository = logEntryRepository;
         this.storageProperties = storageProperties;
         this.logParsingService = logParsingService;
+        this.errorGroupingService = errorGroupingService;
     }
 
     // Yükleme: DB'ye yazdığı için okuma-yazma transaction'ı içinde çalışır
@@ -63,6 +67,9 @@ public class LogFileServiceImpl implements LogFileService {
         // (Aynı transaction içinde çalışır; 'saved' yönetilen entity olduğu için güncellemeler DTO'ya yansır.)
         String text = new String(content, StandardCharsets.UTF_8);
         logParsingService.parseAndPersist(saved, text);
+
+        // Parse biter bitmez tekrarlanan hataları grupla (error_group) → istatistikler ve AI için hazır olur
+        errorGroupingService.rebuildGroups(saved);
 
         return LogFileSummaryResponse.from(saved);          // İç modeli dışarı sızdırmadan DTO döndür
     }

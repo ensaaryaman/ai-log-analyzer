@@ -2,6 +2,7 @@ package com.ailoganalyzer.controller;
 
 import com.ailoganalyzer.dto.LogFileSummaryResponse;
 import com.ailoganalyzer.service.LogFileService;
+import com.ailoganalyzer.service.StatsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ class LogFileControllerTest {
 
     @MockitoBean                        // LogFileService'in sahte (mock) örneğini bağlama koyar (gerçek DB'ye gitmez)
     private LogFileService logFileService;
+
+    @MockitoBean                        // Controller artık StatsService'e de bağlı → onu da mock'la (bağlam kurulabilsin)
+    private StatsService statsService;
 
     @Test
     @DisplayName("Geçerli dosya yüklenince 201 Created ve özet döner")
