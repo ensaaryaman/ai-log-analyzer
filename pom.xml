@@ -124,6 +124,22 @@
 					</annotationProcessorPaths>
 				</configuration>
 			</plugin>
+			<!-- Failsafe: entegrasyon testlerini (*IT) 'verify' fazında çalıştırır.
+			     Böylece hızlı birim testleri 'mvn test' ile (Docker'sız) her zaman koşar;
+			     Docker/Testcontainers gerektiren *IT testleri yalnızca 'mvn verify' ile çalışır.
+			     Bu ayrım, geliştirme döngüsünü hızlandırır ve ortam bağımlı testleri izole eder. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal> <!-- *IT testlerini derleyip çalıştırır -->
+							<goal>verify</goal>            <!-- Sonuçları doğrular, hata varsa build'i düşürür -->
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 

@@ -1,0 +1,7 @@
+2026-07-21 09:15:01,010 INFO  [main] com.example.app.Bootstrap - Uygulama baslatiliyor
+2026-07-21 09:15:02,340 WARN  [worker-3] com.example.app.CacheService - Onbellek doluluk orani %85
+2026-07-21 09:15:05,120 ERROR [worker-3] com.example.app.UserService - Kullanici getirilirken hata
+java.lang.NullPointerException: Cannot invoke "com.example.app.User.getName()" because "user" is null
+    at com.example.app.UserService.format(UserService.java:88)
+    at com.example.app.UserService.getUser(UserService.java:54)
+    at com.example.app.UserController.show(UserController.java:31)

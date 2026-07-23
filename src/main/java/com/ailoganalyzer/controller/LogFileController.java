@@ -1,5 +1,7 @@
 package com.ailoganalyzer.controller;
 
+import com.ailoganalyzer.domain.LogLevel;
+import com.ailoganalyzer.dto.LogEntryResponse;
 import com.ailoganalyzer.dto.LogFileSummaryResponse;
 import com.ailoganalyzer.exception.InvalidFileException;
 import com.ailoganalyzer.exception.StorageException;
@@ -67,5 +69,13 @@ public class LogFileController {
     @GetMapping("/{id}")             // Yoldaki {id} kısmını değişkene bağlar
     public LogFileSummaryResponse getOne(@PathVariable UUID id) {   // @PathVariable: URL'deki id'yi parametreye aktarır
         return logFileService.getById(id);
+    }
+
+    // GET /api/logs/{id}/entries?level=ERROR — parse edilmiş kayıtlar (level filtresi opsiyonel)
+    @GetMapping("/{id}/entries")
+    public List<LogEntryResponse> entries(
+            @PathVariable UUID id,
+            @RequestParam(value = "level", required = false) LogLevel level) {   // required=false: parametre verilmezse null → hepsi
+        return logFileService.getEntries(id, level);
     }
 }

@@ -20,6 +20,9 @@ public record LogFileSummaryResponse(
         int lineCount,
         int errorCount,
         int warnCount,
+        int parseErrorCount,
+        OffsetDateTime firstTs,
+        OffsetDateTime lastTs,
         String status,
         OffsetDateTime uploadedAt
 ) {
@@ -34,6 +37,9 @@ public record LogFileSummaryResponse(
                 file.getLineCount(),
                 file.getErrorCount(),
                 file.getWarnCount(),
+                file.getParseErrorCount(),
+                file.getFirstTs(),
+                file.getLastTs(),
                 file.getStatus().name(),
                 file.getUploadedAt()
         );

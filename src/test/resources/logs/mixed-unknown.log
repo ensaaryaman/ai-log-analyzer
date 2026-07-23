@@ -1,0 +1,6 @@
+[2026/07/22 10:00:00] APP-START version=1.0
+something happened here without any structure
+ERROR: disk usage above threshold on /var
+2026-07-22 10:00:05 kernel: usb device connected
+WARN retrying connection to db
+plain line with no level at all

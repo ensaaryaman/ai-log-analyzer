@@ -1,0 +1,15 @@
+2026-07-20T14:02:11.123+03:00  INFO 1234 --- [           main] c.e.demo.DemoApplication : Started DemoApplication in 3.2 seconds
+2026-07-20T14:02:11.456+03:00  WARN 1234 --- [pool-1-thread-2] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Connection is not available, request timed out after 30000ms
+2026-07-20T14:05:02.789+03:00 ERROR 1234 --- [http-nio-8080-exec-3] c.e.demo.OrderService : Siparis islenirken beklenmeyen hata
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms
+    at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)
+    at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+    at com.example.demo.OrderService.placeOrder(OrderService.java:42)
+    at com.example.demo.OrderController.create(OrderController.java:28)
+Caused by: java.net.SocketTimeoutException: connect timed out
+    at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-20T14:05:03.001+03:00  INFO 1234 --- [http-nio-8080-exec-4] c.e.demo.OrderService : Yeniden deneme planlandi
+2026-07-20T14:07:44.222+03:00 ERROR 1234 --- [http-nio-8080-exec-7] c.e.demo.OrderService : Siparis islenirken beklenmeyen hata
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms
+    at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+    at com.example.demo.OrderService.placeOrder(OrderService.java:42)
