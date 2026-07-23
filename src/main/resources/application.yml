@@ -36,7 +36,7 @@ spring:
       chat:
         completions-path: /chat/completions        # base-url ile birleşince tam Gemini uç noktası oluşur
         options:
-          model: ${AI_MODEL:gemini-2.5-flash}       # Hızlı ve ücretsiz-dostu model (config'ten değiştirilebilir)
+          model: ${AI_MODEL:gemini-flash-latest}    # Google'ın güncel flash modeli (takma ad → deprecation'a dayanıklı)
           temperature: 0.2                          # Düşük sıcaklık → tutarlı, deterministik JSON çıktısı
     retry:
       max-attempts: 2                               # Geçici hatalarda 1 kez daha dene (dayanıklılık)
