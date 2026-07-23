@@ -1,0 +1,7 @@
+2026-07-22 22:03:11.900 [scheduler-1] INFO  com.example.batch.JobRunner - Gece isi basladi
+2026-07-22 22:03:45.120 [scheduler-1] ERROR com.example.batch.JobRunner - Toplu islem coktu
+java.lang.OutOfMemoryError: Java heap space
+    at java.base/java.util.Arrays.copyOf(Arrays.java:3512)
+    at java.base/java.util.ArrayList.grow(ArrayList.java:237)
+    at com.example.batch.JobRunner.loadAll(JobRunner.java:71)
+    at com.example.batch.JobRunner.run(JobRunner.java:39)

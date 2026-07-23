@@ -1,5 +1,7 @@
 package com.ailoganalyzer.service;
 
+import com.ailoganalyzer.domain.LogLevel;
+import com.ailoganalyzer.dto.LogEntryResponse;
 import com.ailoganalyzer.dto.LogFileSummaryResponse;
 
 import java.util.List;
@@ -20,4 +22,7 @@ public interface LogFileService {
 
     // Verilen kimliğe sahip dosyanın özetini döner (yoksa ResourceNotFoundException)
     LogFileSummaryResponse getById(UUID id);
+
+    // Bir dosyanın parse edilmiş kayıtlarını döner; level verilirse (null değilse) o seviyeye göre filtreler
+    List<LogEntryResponse> getEntries(UUID fileId, LogLevel level);
 }
