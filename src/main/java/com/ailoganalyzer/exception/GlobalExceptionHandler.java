@@ -39,6 +39,13 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Depolama hatası", ex.getMessage());
     }
 
+    // Yapay zeka analizi hatası (API/parse/zaman aşımı) → 502 Bad Gateway (dış servis kaynaklı)
+    @ExceptionHandler(AiAnalysisException.class)
+    public ProblemDetail handleAiAnalysis(AiAnalysisException ex) {
+        return problem(HttpStatus.BAD_GATEWAY, "Analiz başarısız",
+                ex.getMessage() + " — 'mock' profiliyle deneyebilir veya API anahtarınızı kontrol edebilirsiniz.");
+    }
+
     // ProblemDetail nesnesini tek yerde kurar (kod tekrarını önler)
     private ProblemDetail problem(HttpStatus status, String title, String detail) {
         ProblemDetail pd = ProblemDetail.forStatus(status);   // status alanını RFC 7807 gövdesine koyar

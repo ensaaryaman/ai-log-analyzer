@@ -67,8 +67,7 @@ public class Analysis {
     @Column(name = "evidence_lines", columnDefinition = "jsonb")
     private List<Integer> evidenceLines;                 // AI'ın dayandığı orijinal satır numaraları (kanıt)
 
-    @JdbcTypeCode(SqlTypes.JSON)                         // Modelin ham JSON yanıtı — debug ve ileride yeni alanlar için
-    @Column(name = "raw_response", columnDefinition = "jsonb")
+    @Column(name = "raw_response", columnDefinition = "text")   // Modelin ham yanıtı (JSON olmayabilir → text)
     private String rawResponse;
 
     @Column(name = "prompt_tokens")
