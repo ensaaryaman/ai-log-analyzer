@@ -3,6 +3,8 @@ package com.ailoganalyzer.storage;
 import com.ailoganalyzer.config.StorageProperties;
 import com.ailoganalyzer.exception.StorageException;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -17,6 +19,8 @@ import java.util.UUID;
  */
 @Service                             // Bu sınıfı bir Spring servis bileşeni yapar; DI konteyneri yönetir ve enjekte eder
 public class LocalFileStorageService implements FileStorageService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(LocalFileStorageService.class);   // Hata ayıklama/uyarı logları için
 
     private final Path root;         // final: kurulumdan sonra değişmez (thread-safe, öngörülebilir)
 
@@ -54,6 +58,20 @@ public class LocalFileStorageService implements FileStorageService {
             return target.toString();
         } catch (IOException e) {
             throw new StorageException("Dosya diske yazılamadı: " + uniqueName, e);
+        }
+    }
+
+    // Diskteki dosyayı en iyi çaba ile siler; hata olursa yutar (ana silme işlemini bozmasın)
+    @Override
+    public void deleteQuietly(String path) {
+        if (path == null || path.isBlank()) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(Paths.get(path));
+        } catch (IOException | RuntimeException e) {
+            // En iyi çaba: dosya silinemese bile (ör. yetki), akışı durdurma — yalnızca logla
+            LOGGER.warn("Ham log dosyası silinemedi: {} ({})", path, e.getMessage());
         }
     }
 }

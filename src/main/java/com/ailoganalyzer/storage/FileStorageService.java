@@ -15,4 +15,13 @@ public interface FileStorageService {
      * @return saklanan dosyanın yolu (DB'de log_file.storage_path olarak tutulur)
      */
     String store(String originalFilename, byte[] content);
+
+    /**
+     * Verilen yoldaki dosyayı "sessizce" siler (yoksa veya hata olursa istisna fırlatmaz).
+     * Log kaydı silinirken diskteki ham dosyayı temizlemek için kullanılır; bu işlemin
+     * başarısızlığı ana silme işlemini bozmamalıdır (en iyi çaba / best-effort).
+     *
+     * @param path saklama yolu (null olabilir → hiçbir şey yapmaz)
+     */
+    void deleteQuietly(String path);
 }

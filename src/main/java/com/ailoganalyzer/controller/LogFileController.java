@@ -10,11 +10,13 @@ import com.ailoganalyzer.service.LogFileService;
 import com.ailoganalyzer.service.StatsService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -87,5 +89,12 @@ public class LogFileController {
     @GetMapping("/{id}/stats")
     public StatsResponse stats(@PathVariable UUID id) {
         return statsService.computeStats(id);
+    }
+
+    // DELETE /api/logs/{id} — log dosyasını ve bağlı tüm verilerini siler
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)   // Başarılı silmede gövdesiz 204 döner (REST kuralı)
+    public void delete(@PathVariable UUID id) {
+        logFileService.delete(id);
     }
 }
