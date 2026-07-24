@@ -2,6 +2,7 @@ package com.ailoganalyzer.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -24,6 +25,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ProblemDetail handleNotFound(ResourceNotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, "Bulunamadı", ex.getMessage());
+    }
+
+    // İstek gövdesi doğrulaması başarısız (ör. boş soru) → 400 Bad Request
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
+        // İlk alan hatasının mesajını kullanıcıya göster
+        String detail = ex.getBindingResult().getFieldErrors().stream()
+                .map(f -> f.getDefaultMessage())
+                .findFirst().orElse("Geçersiz istek");
+        return problem(HttpStatus.BAD_REQUEST, "Geçersiz istek", detail);
     }
 
     // Dosya boyutu sınırı aşıldı → 413 Payload Too Large (multipart limitinden gelir)
