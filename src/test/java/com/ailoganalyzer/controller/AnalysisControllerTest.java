@@ -2,6 +2,7 @@ package com.ailoganalyzer.controller;
 
 import com.ailoganalyzer.dto.AnalysisResponse;
 import com.ailoganalyzer.service.AnalysisService;
+import com.ailoganalyzer.service.ReportService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +17,9 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,6 +36,9 @@ class AnalysisControllerTest {
     @MockitoBean
     private AnalysisService analysisService;
 
+    @MockitoBean                        // Controller artık ReportService'e de bağlı → mock'la
+    private ReportService reportService;
+
     @Test
     @DisplayName("POST /api/logs/{id}/analyze → 200 ve analiz özeti döner")
     void analyzeReturnsResult() throws Exception {
@@ -48,5 +54,17 @@ class AnalysisControllerTest {
                 .andExpect(jsonPath("$.priority").value("HIGH"))
                 .andExpect(jsonPath("$.summary").value("Özet"))
                 .andExpect(jsonPath("$.model").value("gemini-2.5-flash"));
+    }
+
+    @Test
+    @DisplayName("GET /api/analyses/{id}/report.pdf → 200, application/pdf ve indirme başlığı")
+    void reportReturnsPdf() throws Exception {
+        UUID analysisId = UUID.randomUUID();
+        when(reportService.generateAnalysisReport(eq(analysisId))).thenReturn(new byte[]{'%', 'P', 'D', 'F'});
+
+        mockMvc.perform(get("/api/analyses/{id}/report.pdf", analysisId))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"analiz-raporu.pdf\""));
     }
 }

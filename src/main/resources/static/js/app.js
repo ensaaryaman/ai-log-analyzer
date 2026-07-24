@@ -263,6 +263,20 @@ function renderCharts(stats) {
     } else {
         setEmpty('timelineChart', 'Zaman damgalı WARN/ERROR yok');
     }
+
+    renderTransition(stats);         // WARN→ERROR geçiş içgörüsü
+}
+
+// WARN→ERROR geçişi varsa bir içgörü cümlesi gösterir ("uyarılar başladı, N dk sonra hataya dönüştü")
+function renderTransition(stats) {
+    const el = $('transitionInsight');
+    const tr = stats.warnToErrorTransition;
+    if (!tr) { el.innerHTML = ''; return; }
+    const gapTxt = tr.gapMinutes > 0 ? `${tr.gapMinutes} dakika sonra` : 'aynı dakikada';
+    el.innerHTML = `<div class="insight">
+        <strong>WARN&#8594;ERROR Geçişi:</strong> Uyarılar ${hhmm(tr.firstWarn)} itibarıyla başladı ve
+        ${gapTxt} (${hhmm(tr.firstError)}) hataya dönüştü.
+    </div>`;
 }
 
 // Aktif grafikleri yok eder (yeni dosya seçilince canvas temizlensin)
@@ -408,6 +422,7 @@ function renderAnalysisCard(a) {
                 <div class="conf-lbl">Güven: %${conf}</div>
                 <div class="conf-bar"><div class="conf-fill ${cc}" style="width:${conf}%"></div></div>
             </div>
+            <a class="btn-sm" href="/api/analyses/${a.id}/report.pdf" title="Analizi PDF olarak indir">PDF İndir</a>
         </div>
         <div class="analysis-section"><h4>Özet</h4><div class="content">${mdLite(a.summary)}</div></div>
         <div class="analysis-section"><h4>Olası Kök Neden</h4><div class="content">${mdLite(a.rootCause)}</div></div>

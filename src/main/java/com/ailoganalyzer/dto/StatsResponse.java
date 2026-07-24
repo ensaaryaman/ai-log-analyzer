@@ -13,9 +13,10 @@ import java.util.Map;
  * @param levelDistribution seviye → adet (ör. {"ERROR":2, "WARN":1, "INFO":2})
  * @param topExceptions     en sık görülen istisna tipleri
  * @param errorGroups       tekrarlanan hata grupları (en çok tekrarlanandan aza)
- * @param problemTimeline   dakikalık WARN/ERROR zaman serisi
- * @param firstTs           logdaki en erken zaman
- * @param lastTs            logdaki en geç zaman
+ * @param problemTimeline        dakikalık WARN/ERROR zaman serisi
+ * @param warnToErrorTransition  WARN→ERROR geçiş içgörüsü (yoksa null)
+ * @param firstTs                logdaki en erken zaman
+ * @param lastTs                 logdaki en geç zaman
  */
 public record StatsResponse(
         java.util.UUID fileId,
@@ -25,6 +26,7 @@ public record StatsResponse(
         List<ExceptionStat> topExceptions,
         List<ErrorGroupResponse> errorGroups,
         List<TimeBucket> problemTimeline,
+        WarnToErrorTransition warnToErrorTransition,
         OffsetDateTime firstTs,
         OffsetDateTime lastTs
 ) {
