@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Log Analyzer</title>
     <link rel="stylesheet" href="/css/styles.css">
-    <!-- Favicon: gömülü emoji (harici istek yok) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    <!-- Favicon: SVG ile çizilmiş büyüteç (emoji değil, harici istek yok) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='13' cy='13' r='8' fill='none' stroke='%234f46e5' stroke-width='3'/><line x1='18.5' y1='18.5' x2='27' y2='27' stroke='%234f46e5' stroke-width='3' stroke-linecap='round'/></svg>">
 </head>
 <body>
 
@@ -14,7 +14,6 @@
 <header class="app-header">
     <div class="container header-inner">
         <div class="brand">
-            <span class="brand-icon">🔍</span>
             <div>
                 <h1>AI Log Analyzer</h1>
                 <p class="tagline">Log dosyalarını yapay zeka ile analiz edin — hata nedeni, çözüm ve öncelik</p>
@@ -29,7 +28,6 @@
     <!-- Yükleme alanı -->
     <section class="upload-card" id="dropZone">
         <div class="upload-inner">
-            <div class="upload-icon">📄</div>
             <h2>Log dosyası yükleyin</h2>
             <p class="muted">.log veya .txt dosyasını buraya sürükleyin ya da seçin (maks. 10 MB)</p>
             <label class="btn btn-primary">
@@ -54,7 +52,6 @@
         <!-- SAĞ: seçili dosyanın detayı + analiz -->
         <section class="panel detail">
             <div id="detailEmpty" class="empty muted detail-empty">
-                <div class="empty-icon">👈</div>
                 Bir log seçin ya da yeni bir dosya yükleyin.
             </div>
 
@@ -65,7 +62,7 @@
                         <h3 id="detailFilename">—</h3>
                         <div id="detailMeta" class="detail-meta"></div>
                     </div>
-                    <button id="analyzeBtn" class="btn btn-accent">🤖 Yapay Zeka ile Analiz Et</button>
+                    <button id="analyzeBtn" class="btn btn-accent">Yapay Zeka ile Analiz Et</button>
                 </div>
 
                 <!-- İstatistik rozetleri -->

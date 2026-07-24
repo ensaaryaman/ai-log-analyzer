@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 
 // Sayfa yüklenince: mevcut logları getir ve olayları bağla
 document.addEventListener('DOMContentLoaded', async () => {
-    $('providerBadge').textContent = '🤖 Spring AI';
+    $('providerBadge').textContent = 'Spring AI';
     bindUpload();
     await loadFiles();
     // Deep-link: /?file=<id> verilirse o logu otomatik seç (paylaşılabilir bağlantı)
@@ -55,12 +55,12 @@ async function uploadFile(file) {
         if (!res.ok) throw await problem(res);
         const summary = await res.json();
         status.className = 'upload-status ok';
-        status.textContent = `✓ "${summary.filename}" yüklendi — ${summary.lineCount} satır, ${summary.errorCount} hata.`;
+        status.textContent = `"${summary.filename}" yüklendi — ${summary.lineCount} satır, ${summary.errorCount} hata.`;
         await loadFiles();
         selectFile(summary.id);   // Yeni yükleneni otomatik seç
     } catch (err) {
         status.className = 'upload-status err';
-        status.textContent = '✗ ' + err.message;
+        status.textContent = err.message;
     }
 }
 
@@ -161,12 +161,12 @@ async function analyzeFile(id) {
         const res = await fetch(`/api/logs/${id}/analyze`, { method: 'POST' });
         if (!res.ok) throw await problem(res);
         const analysis = await res.json();
-        $('providerBadge').textContent = '🤖 ' + (analysis.model || 'Spring AI');
+        $('providerBadge').textContent = analysis.model || 'Spring AI';
         // Yeni sonucu göster ve geçmişi tazele
         const analyses = await fetch(`/api/analyses?fileId=${id}`).then(r => r.json());
         renderHistory(analyses);
     } catch (err) {
-        area.innerHTML = `<div class="analysis-card"><strong style="color:var(--p-critical)">✗ Analiz başarısız</strong>
+        area.innerHTML = `<div class="analysis-card"><strong style="color:var(--p-critical)">Analiz başarısız</strong>
             <p class="muted">${esc(err.message)}</p></div>`;
     } finally {
         btn.disabled = false;
@@ -187,6 +187,7 @@ function renderHistory(analyses) {
 // Tek bir analiz sonucunu kart olarak biçimlendirir
 function renderAnalysisCard(a) {
     const conf = Math.round((a.confidence || 0) * 100);
+    const cc = confClass(a.confidence || 0);   // Güven seviyesine göre renk sınıfı (rozet + çubuk aynı rengi kullanır)
     const evidence = (a.evidenceLines || []).length
         ? `<div class="analysis-section"><h4>Kanıt Satırları</h4>
              <div class="evidence">${a.evidenceLines.map(n => `<span class="ev-chip">satır ${n}</span>`).join('')}</div></div>`
@@ -194,10 +195,10 @@ function renderAnalysisCard(a) {
     return `
     <div class="analysis-card">
         <div class="analysis-top">
-            <span class="badge ${a.priority}">${priorityLabel(a.priority)}</span>
+            <span class="badge ${cc}">${priorityLabel(a.priority)}</span>
             <div class="confidence">
                 <div class="conf-lbl">Güven: %${conf}</div>
-                <div class="conf-bar"><div class="conf-fill" style="width:${conf}%"></div></div>
+                <div class="conf-bar"><div class="conf-fill ${cc}" style="width:${conf}%"></div></div>
             </div>
         </div>
         <div class="analysis-section"><h4>Özet</h4><div class="content">${esc(a.summary)}</div></div>
@@ -205,12 +206,19 @@ function renderAnalysisCard(a) {
         <div class="analysis-section"><h4>Çözüm Önerisi</h4><div class="content">${esc(a.solution)}</div></div>
         ${evidence}
         <div class="analysis-foot">
-            <span>🤖 ${esc(a.model || '—')}</span>
-            <span>⏱ ${a.durationMs ?? '—'} ms</span>
-            <span>🔢 ${a.promptTokens ?? '—'} + ${a.completionTokens ?? '—'} token</span>
-            <span>🕒 ${formatDate(a.createdAt)}</span>
+            <span>Model: ${esc(a.model || '—')}</span>
+            <span>Süre: ${a.durationMs ?? '—'} ms</span>
+            <span>Token: ${a.promptTokens ?? '—'} + ${a.completionTokens ?? '—'}</span>
+            <span>${formatDate(a.createdAt)}</span>
         </div>
     </div>`;
+}
+
+// Güven değerini (0-1) renk sınıfına eşler: yüksek=yeşil, orta=sarı, düşük=kırmızı
+function confClass(confidence) {
+    if (confidence >= 0.8) return 'conf-high';
+    if (confidence >= 0.5) return 'conf-medium';
+    return 'conf-low';
 }
 
 /* ---------------- Yardımcılar ---------------- */
@@ -227,7 +235,7 @@ function priorityLabel(p) {
 
 // Durum enum'unu Türkçe etikete çevirir
 function statusLabel(s) {
-    return { UPLOADED: 'yüklendi', PARSED: 'ayrıştırıldı', ANALYZED: '✓ analiz edildi', FAILED: 'hata' }[s] || s;
+    return { UPLOADED: 'yüklendi', PARSED: 'ayrıştırıldı', ANALYZED: 'analiz edildi', FAILED: 'hata' }[s] || s;
 }
 
 // ISO tarihi okunur biçime çevirir
