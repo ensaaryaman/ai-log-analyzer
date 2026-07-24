@@ -28,6 +28,11 @@
     --lvl-warn: #d97706;
     --lvl-info: #2563eb;
     --lvl-debug: #64748b;
+
+    /* Güven seviyesi renkleri (kırmızı - sarı - yeşil) */
+    --conf-low: #dc2626;
+    --conf-medium: #eab308;
+    --conf-high: #16a34a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -65,7 +70,6 @@ body {
 }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 14px; }
-.brand-icon { font-size: 34px; }
 .app-header h1 { margin: 0; font-size: 22px; }
 .tagline { margin: 2px 0 0; font-size: 13px; opacity: .9; }
 .provider-badge {
@@ -80,7 +84,6 @@ body {
 }
 .upload-card.dragover { border-color: var(--primary); background: var(--surface-2); }
 .upload-inner { padding: 32px 20px; text-align: center; }
-.upload-icon { font-size: 40px; }
 .upload-card h2 { margin: 8px 0 4px; font-size: 18px; }
 .upload-status { margin: 12px 0 0; font-size: 14px; min-height: 20px; }
 .upload-status.ok { color: var(--p-low); }
@@ -123,7 +126,6 @@ body {
 /* --- Detay --- */
 .detail { min-height: 300px; }
 .detail-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 260px; text-align: center; }
-.empty-icon { font-size: 32px; margin-bottom: 8px; }
 .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .detail-header h3 { margin: 0 0 4px; word-break: break-all; }
 .detail-meta { font-size: 13px; color: var(--muted); }
@@ -157,17 +159,19 @@ body {
 }
 .analysis-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 .badge {
-    padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff;
+    padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
 }
-.badge.CRITICAL { background: var(--p-critical); }
-.badge.HIGH { background: var(--p-high); }
-.badge.MEDIUM { background: var(--p-medium); }
-.badge.LOW { background: var(--p-low); }
+/* Öncelik rozeti ve güven çubuğu, güven seviyesine göre AYNI rengi kullanır */
+.badge.conf-low,    .conf-fill.conf-low    { background: var(--conf-low); }
+.badge.conf-medium, .conf-fill.conf-medium { background: var(--conf-medium); }
+.badge.conf-high,   .conf-fill.conf-high   { background: var(--conf-high); }
+.badge.conf-low, .badge.conf-high { color: #fff; }
+.badge.conf-medium { color: #1c2330; }   /* Sarı zeminde koyu metin (okunabilirlik) */
 
 .confidence { flex: 1; min-width: 160px; }
 .confidence .conf-lbl { font-size: 11px; color: var(--muted); }
 .conf-bar { height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; margin-top: 3px; }
-.conf-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--primary)); border-radius: 999px; }
+.conf-fill { height: 100%; border-radius: 999px; }
 
 .analysis-section { margin: 14px 0; }
 .analysis-section h4 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
