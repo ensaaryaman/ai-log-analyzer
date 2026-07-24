@@ -8,6 +8,7 @@ const state = {
     files: [],          // Yüklenen loglar
     selectedId: null,   // Seçili logun kimliği
     charts: {},         // Aktif Chart.js örnekleri (yeni seçimde yok edilir)
+    chatAnalysisId: null, // Sohbetin bağlı olduğu analiz (en son analiz)
 };
 
 // --- DOM kısayolları ---
@@ -358,10 +359,11 @@ function renderHistory(analyses) {
     const area = $('analysisArea');
     if (!analyses.length) {
         area.innerHTML = '<p class="history-title">Bu log henüz analiz edilmedi.</p>';
-        return;
+    } else {
+        area.innerHTML = '<div class="history-title">Analiz Sonuçları</div>'
+            + analyses.map(renderAnalysisCard).join('');
     }
-    area.innerHTML = '<div class="history-title">Analiz Sonuçları</div>'
-        + analyses.map(renderAnalysisCard).join('');
+    renderChat(analyses);          // Analiz varsa sohbet arayüzünü kur
 }
 
 // Tek bir analiz sonucunu kart olarak biçimlendirir
@@ -381,9 +383,9 @@ function renderAnalysisCard(a) {
                 <div class="conf-bar"><div class="conf-fill ${cc}" style="width:${conf}%"></div></div>
             </div>
         </div>
-        <div class="analysis-section"><h4>Özet</h4><div class="content">${esc(a.summary)}</div></div>
-        <div class="analysis-section"><h4>Olası Kök Neden</h4><div class="content">${esc(a.rootCause)}</div></div>
-        <div class="analysis-section"><h4>Çözüm Önerisi</h4><div class="content">${esc(a.solution)}</div></div>
+        <div class="analysis-section"><h4>Özet</h4><div class="content">${mdLite(a.summary)}</div></div>
+        <div class="analysis-section"><h4>Olası Kök Neden</h4><div class="content">${mdLite(a.rootCause)}</div></div>
+        <div class="analysis-section"><h4>Çözüm Önerisi</h4><div class="content">${mdLite(a.solution)}</div></div>
         ${evidence}
         <div class="analysis-foot">
             <span>Model: ${esc(a.model || '—')}</span>
@@ -399,6 +401,105 @@ function confClass(confidence) {
     if (confidence >= 0.8) return 'conf-high';
     if (confidence >= 0.5) return 'conf-medium';
     return 'conf-low';
+}
+
+/* ---------------- Log ile sohbet ---------------- */
+
+// Bir analiz varsa (en sonuncusu bağlam alınır) sohbet panelini kurar
+function renderChat(analyses) {
+    const area = $('chatArea');
+    if (!analyses.length) { area.innerHTML = ''; state.chatAnalysisId = null; return; }
+
+    const latest = analyses[0];              // En son analiz (liste createdAt'e göre azalan)
+    state.chatAnalysisId = latest.id;
+    area.innerHTML = `
+        <div class="chat-panel">
+            <h4>Log ile Sohbet <span class="chat-hint muted">(en son analiz bağlamında)</span></h4>
+            <div id="chatMessages" class="chat-messages"></div>
+            <form id="chatForm" class="chat-input" autocomplete="off">
+                <input id="chatInput" type="text" maxlength="2000" placeholder="Bu log hakkında bir soru sorun...">
+                <button type="submit" class="btn btn-accent">Gönder</button>
+            </form>
+        </div>`;
+    $('chatForm').addEventListener('submit', onChatSubmit);
+    loadChatHistory(latest.id);
+}
+
+// GET /api/analyses/{id}/chat → geçmiş mesajları çizer
+async function loadChatHistory(analysisId) {
+    try {
+        const msgs = await fetch(`/api/analyses/${analysisId}/chat`).then(r => r.json());
+        renderChatMessages(msgs);
+    } catch { /* geçmiş yüklenemezse sessiz geç */ }
+}
+
+function renderChatMessages(msgs) {
+    const box = $('chatMessages');
+    if (!msgs || !msgs.length) {
+        box.innerHTML = '<div class="chat-empty muted">Henüz mesaj yok. İlk soruyu sorun.</div>';
+        return;
+    }
+    box.innerHTML = msgs.map(chatBubble).join('');
+    box.scrollTop = box.scrollHeight;
+}
+
+// Tek bir mesajı baloncuk olarak biçimlendirir (kullanıcı sağ, asistan sol)
+function chatBubble(m) {
+    const who = m.role === 'USER' ? 'user' : 'assistant';
+    // Kullanıcı mesajı düz metin; asistan yanıtında hafif markdown biçimlendirmesi uygulanır
+    const content = who === 'user' ? esc(m.content) : mdLite(m.content);
+    return `<div class="chat-bubble ${who}"><div class="chat-content">${content}</div></div>`;
+}
+
+// Soru gönderme: optimistik olarak kullanıcı mesajını + "yanıtlıyor" göster, yanıt gelince ekle
+async function onChatSubmit(e) {
+    e.preventDefault();
+    const input = $('chatInput');
+    const question = input.value.trim();
+    if (!question || !state.chatAnalysisId) return;
+    input.value = '';
+
+    appendBubble({ role: 'USER', content: question });
+    const loading = appendLoadingBubble();
+    const btn = e.target.querySelector('button');
+    btn.disabled = true; input.disabled = true;
+
+    try {
+        const res = await fetch(`/api/analyses/${state.chatAnalysisId}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question }),
+        });
+        if (!res.ok) throw await problem(res);
+        const reply = await res.json();
+        loading.remove();
+        appendBubble(reply);
+    } catch (err) {
+        loading.remove();
+        appendBubble({ role: 'ASSISTANT', content: 'Hata: ' + err.message });
+    } finally {
+        btn.disabled = false; input.disabled = false; input.focus();
+    }
+}
+
+// Mesaj listesine yeni bir baloncuk ekler ve en alta kaydırır
+function appendBubble(m) {
+    const box = $('chatMessages');
+    const empty = box.querySelector('.chat-empty');
+    if (empty) empty.remove();
+    box.insertAdjacentHTML('beforeend', chatBubble(m));
+    box.scrollTop = box.scrollHeight;
+}
+
+// "yanıtlıyor..." geçici baloncuğu ekler; döndürdüğü öğe yanıt gelince kaldırılır
+function appendLoadingBubble() {
+    const box = $('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'chat-bubble assistant';
+    div.innerHTML = '<div class="chat-content"><span class="chat-typing">yanıtlıyor...</span></div>';
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
 }
 
 /* ---------------- Yardımcılar ---------------- */
@@ -429,6 +530,15 @@ function esc(s) {
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Hafif markdown: modelin döndürdüğü **kalın** ve `kod` işaretlerini HTML'e çevirir.
+// ÖNCE esc() ile kaçışlanır (XSS güvenliği), SONRA sınırlı biçimlendirme uygulanır (kütüphane yok).
+function mdLite(s) {
+    let html = esc(s);
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    return html;
 }
 
 // Hata yanıtını (RFC 7807 ProblemDetail) okunur bir Error'a çevirir
