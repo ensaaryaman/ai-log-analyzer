@@ -23,9 +23,9 @@
     --p-medium: #ca8a04;
     --p-low: #16a34a;
 
-    /* Seviye renkleri */
+    /* Seviye renkleri (WARN kırmızıdan ayrışsın diye #ca8a04 — dataviz doğrulaması) */
     --lvl-error: #dc2626;
-    --lvl-warn: #d97706;
+    --lvl-warn: #ca8a04;
     --lvl-info: #2563eb;
     --lvl-debug: #64748b;
 
@@ -151,6 +151,45 @@ body {
 .eg-type { font-weight: 600; font-family: ui-monospace, monospace; }
 .eg-count { background: var(--lvl-error); color: #fff; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .eg-msg { color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+/* --- Dashboard grafikleri --- */
+.dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0; }
+.chart-card.wide { grid-column: 1 / -1; }         /* Zaman serisi tam genişlik */
+@media (max-width: 560px) { .dashboard { grid-template-columns: 1fr; } }
+.chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px;
+}
+.chart-card h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+.chart-wrap { position: relative; height: 210px; }
+.chart-empty { display: none; align-items: center; justify-content: center; height: 100%; font-size: 13px; }
+
+/* --- Kayıt tablosu --- */
+.entries-section { margin: 18px 0; }
+.entries-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.entries-head h4 { margin: 0; font-size: 14px; }
+#levelFilter {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer;
+}
+.entries-table { border: 1px solid var(--border); border-radius: 8px; max-height: 340px; overflow-y: auto; font-size: 13px; }
+.entry-row {
+    display: grid; grid-template-columns: 54px 62px 1fr; gap: 10px;
+    padding: 8px 12px; border-bottom: 1px solid var(--border); align-items: baseline;
+}
+.entry-row:last-child { border-bottom: none; }
+.entry-line { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; }
+.entry-msg { word-break: break-word; }
+.entry-msg .exc { color: var(--lvl-error); font-family: ui-monospace, monospace; font-size: 12px; }
+.entry-note { padding: 12px; text-align: center; font-size: 13px; }
+
+/* Seviye rozeti (tabloda) */
+.lvl-badge { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; color: #fff; text-align: center; }
+.lvl-badge.FATAL { background: #7f1d1d; }
+.lvl-badge.ERROR { background: var(--lvl-error); }
+.lvl-badge.WARN  { background: var(--lvl-warn); color: #1c2330; }
+.lvl-badge.INFO  { background: var(--lvl-info); }
+.lvl-badge.DEBUG, .lvl-badge.TRACE, .lvl-badge.UNKNOWN { background: var(--lvl-debug); }
 
 /* --- Analiz sonucu kartı --- */
 .analysis-card {

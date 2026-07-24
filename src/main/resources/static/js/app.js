@@ -7,6 +7,7 @@
 const state = {
     files: [],          // Yüklenen loglar
     selectedId: null,   // Seçili logun kimliği
+    charts: {},         // Aktif Chart.js örnekleri (yeni seçimde yok edilir)
 };
 
 // --- DOM kısayolları ---
@@ -122,6 +123,14 @@ async function selectFile(id) {
         fetch(`/api/analyses?fileId=${id}`).then(r => r.json()),
     ]);
     renderStats(stats);
+    renderCharts(stats);            // Dashboard grafikleri
+
+    // Seviye filtreli kayıt tablosu
+    const filter = $('levelFilter');
+    filter.value = '';
+    filter.onchange = () => loadEntries(id, filter.value);
+    loadEntries(id, '');
+
     renderHistory(analyses);
 }
 
@@ -145,6 +154,177 @@ function renderStats(stats) {
                 </div>
                 <div class="eg-msg">${esc(g.sampleMessage || '')}${g.sampleLineNumber ? ` <em>(satır ${g.sampleLineNumber})</em>` : ''}</div>
             </div>`).join('')}` : '';
+}
+
+/* ---------------- Dashboard grafikleri (Chart.js) ---------------- */
+
+// Seçili logun istatistiklerinden 3 grafik çizer. Renkler status/semantik (dataviz ilkeleri).
+function renderCharts(stats) {
+    destroyCharts();                 // Önceki grafikleri temizle (canvas yeniden kullanım hatasını önler)
+    const t = themeColors();
+
+    // 1) Seviye dağılımı — doughnut (kimlik: her seviye kendi status rengi; legend + etiket ile)
+    const dist = stats.levelDistribution || {};
+    const levels = Object.keys(dist);
+    if (levels.length) {
+        clearEmpty('levelChart');
+        state.charts.level = new Chart($('levelChart'), {
+            type: 'doughnut',
+            data: {
+                labels: levels,
+                datasets: [{
+                    data: levels.map(l => dist[l]),
+                    backgroundColor: levels.map(levelColor),
+                    borderColor: t.surface,   // Dilimler arası 2px yüzey boşluğu (dataviz mark spec)
+                    borderWidth: 2,
+                }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '58%',
+                plugins: { legend: { position: 'bottom', labels: { color: t.text, boxWidth: 12, padding: 10 } } },
+            },
+        });
+    } else {
+        setEmpty('levelChart', 'Veri yok');
+    }
+
+    // 2) En sık istisnalar — yatay bar (büyüklük: tek seri, tek renk → legend yok, başlık adlandırır)
+    const exc = stats.topExceptions || [];
+    if (exc.length) {
+        clearEmpty('exceptionsChart');
+        state.charts.exceptions = new Chart($('exceptionsChart'), {
+            type: 'bar',
+            data: {
+                labels: exc.map(e => truncLabel(shortType(e.type), 20)),   // Uzun adlar kırpılır; tam adı tooltip'te
+                datasets: [{ data: exc.map(e => e.count), backgroundColor: '#4f46e5', borderRadius: 4, maxBarThickness: 26 }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                plugins: { legend: { display: false }, tooltip: { callbacks: { title: (i) => exc[i[0].dataIndex].type } } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { color: t.muted, precision: 0 }, grid: { color: t.grid } },
+                    y: { ticks: { color: t.text }, grid: { display: false } },
+                },
+            },
+        });
+    } else {
+        setEmpty('exceptionsChart', 'İstisna yok');
+    }
+
+    // 3) Zaman serisi — çizgi (değişim: 2 seri WARN/ERROR, legend her zaman var)
+    const tl = stats.problemTimeline || [];
+    if (tl.length) {
+        clearEmpty('timelineChart');
+        state.charts.timeline = new Chart($('timelineChart'), {
+            type: 'line',
+            data: {
+                labels: tl.map(b => hhmm(b.minute)),
+                datasets: [
+                    { label: 'WARN', data: tl.map(b => b.warnCount), borderColor: '#ca8a04', backgroundColor: '#ca8a04', borderWidth: 2, tension: .3, pointRadius: 3 },
+                    { label: 'ERROR', data: tl.map(b => b.errorCount), borderColor: '#dc2626', backgroundColor: '#dc2626', borderWidth: 2, tension: .3, pointRadius: 3 },
+                ],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { color: t.text, boxWidth: 12, padding: 10 } } },
+                scales: {
+                    x: { ticks: { color: t.muted, maxRotation: 0, autoSkip: true }, grid: { color: t.grid } },
+                    y: { beginAtZero: true, ticks: { color: t.muted, precision: 0 }, grid: { color: t.grid } },
+                },
+            },
+        });
+    } else {
+        setEmpty('timelineChart', 'Zaman damgalı WARN/ERROR yok');
+    }
+}
+
+// Aktif grafikleri yok eder (yeni dosya seçilince canvas temizlensin)
+function destroyCharts() {
+    Object.values(state.charts).forEach(c => c && c.destroy());
+    state.charts = {};
+}
+
+// Log seviyesine göre status rengi (dataviz doğrulayıcısıyla ayrıştırıldı: WARN #ca8a04 kırmızıdan ayrı)
+function levelColor(level) {
+    return {
+        FATAL: '#7f1d1d', ERROR: '#dc2626', WARN: '#ca8a04',
+        INFO: '#2563eb', DEBUG: '#64748b', TRACE: '#cbd5e1', UNKNOWN: '#94a3b8',
+    }[level] || '#94a3b8';
+}
+
+// Grafik metin/ızgara renklerini aktif temaya (açık/koyu) göre verir
+function themeColors() {
+    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return dark
+        ? { text: '#e6eaf2', muted: '#94a1b8', grid: '#2a3346', surface: '#171d2b' }
+        : { text: '#1c2330', muted: '#6b7688', grid: '#e2e8f0', surface: '#ffffff' };
+}
+
+// Veri olmayan grafik için canvas'ı gizleyip mesaj gösterir (canvas'ı DOM'dan silmeden)
+function setEmpty(canvasId, msg) {
+    const canvas = $(canvasId);
+    const wrap = canvas.parentElement;
+    canvas.style.display = 'none';
+    let ov = wrap.querySelector('.chart-empty');
+    if (!ov) { ov = document.createElement('div'); ov.className = 'chart-empty muted'; wrap.appendChild(ov); }
+    ov.textContent = msg;
+    ov.style.display = 'flex';
+}
+function clearEmpty(canvasId) {
+    const canvas = $(canvasId);
+    canvas.style.display = '';
+    const ov = canvas.parentElement.querySelector('.chart-empty');
+    if (ov) ov.style.display = 'none';
+}
+
+/* ---------------- Kayıt tablosu ---------------- */
+
+// GET /api/logs/{id}/entries?level= → tabloyu doldurur
+async function loadEntries(fileId, level) {
+    const box = $('entriesTable');
+    box.innerHTML = '<div class="entry-note muted">yükleniyor...</div>';
+    try {
+        const url = `/api/logs/${fileId}/entries` + (level ? `?level=${level}` : '');
+        const entries = await fetch(url).then(r => r.json());
+        renderEntries(entries);
+    } catch {
+        box.innerHTML = '<div class="entry-note muted">Kayıtlar yüklenemedi.</div>';
+    }
+}
+
+// Parse edilmiş kayıtları satır satır çizer (çok büyük listelerde ilk 300 gösterilir)
+function renderEntries(entries) {
+    const box = $('entriesTable');
+    if (!entries.length) {
+        box.innerHTML = '<div class="entry-note muted">Bu filtreye uygun kayıt yok.</div>';
+        return;
+    }
+    const rows = entries.slice(0, 300).map(e => `
+        <div class="entry-row">
+            <span class="entry-line">#${e.lineNumber}</span>
+            <span class="lvl-badge ${e.level || 'UNKNOWN'}">${e.level || '—'}</span>
+            <span class="entry-msg">${esc(e.message || '')}${e.exceptionType ? ` <span class="exc">${esc(shortType(e.exceptionType))}</span>` : ''}${e.hasStackTrace ? ' <span class="muted">(stack trace)</span>' : ''}</span>
+        </div>`).join('');
+    const more = entries.length > 300 ? `<div class="entry-note muted">... ve ${entries.length - 300} kayıt daha</div>` : '';
+    box.innerHTML = rows + more;
+}
+
+// Tam nitelikli istisna/logger adından yalnızca son parçayı (sınıf adı) alır
+function shortType(t) {
+    if (!t) return '—';
+    const parts = t.split('.');
+    return parts[parts.length - 1];
+}
+
+// Uzun etiketi kısaltır (grafik ekseni taşmasın); tam metin tooltip'te gösterilir
+function truncLabel(s, max) {
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+// ISO zamanı SS:dd biçimine çevirir (zaman serisi ekseni için)
+function hhmm(iso) {
+    try { return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); }
+    catch { return iso; }
 }
 
 /* ---------------- Analiz ---------------- */
