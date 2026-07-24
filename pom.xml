@@ -93,6 +93,13 @@
 			<version>4.0.0</version>
 		</dependency>
 
+		<!-- HTML/CSS'ten PDF üretir (analiz raporu indirme). Türkçe için gömülü DejaVu fontu kullanılır. -->
+		<dependency>
+			<groupId>com.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-pdfbox</artifactId>
+			<version>1.0.10</version>
+		</dependency>
+
 		<!-- Lombok: getter/setter/constructor gibi boilerplate'i derleme anında üretir (yalnızca derleme zamanı) -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>

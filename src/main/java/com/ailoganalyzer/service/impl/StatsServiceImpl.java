@@ -8,6 +8,7 @@ import com.ailoganalyzer.dto.ErrorGroupResponse;
 import com.ailoganalyzer.dto.ExceptionStat;
 import com.ailoganalyzer.dto.StatsResponse;
 import com.ailoganalyzer.dto.TimeBucket;
+import com.ailoganalyzer.dto.WarnToErrorTransition;
 import com.ailoganalyzer.exception.ResourceNotFoundException;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
 import com.ailoganalyzer.repository.LogEntryRepository;
@@ -16,6 +17,7 @@ import com.ailoganalyzer.service.StatsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -62,6 +64,7 @@ public class StatsServiceImpl implements StatsService {
 
         List<ExceptionStat> topExceptions = topExceptions(groups);
         List<TimeBucket> timeline = problemTimeline(fileId);
+        WarnToErrorTransition transition = computeTransition(timeline);
 
         return new StatsResponse(
                 file.getId(),
@@ -71,9 +74,24 @@ public class StatsServiceImpl implements StatsService {
                 topExceptions,
                 groupDtos,
                 timeline,
+                transition,
                 file.getFirstTs(),
                 file.getLastTs()
         );
+    }
+
+    // WARN→ERROR geçişini hesaplar: uyarılar hatalardan ÖNCE (veya aynı anda) başladıysa geçiş vardır
+    private WarnToErrorTransition computeTransition(List<TimeBucket> timeline) {
+        OffsetDateTime firstWarn = timeline.stream()
+                .filter(b -> b.warnCount() > 0).map(TimeBucket::minute).findFirst().orElse(null);
+        OffsetDateTime firstError = timeline.stream()
+                .filter(b -> b.errorCount() > 0).map(TimeBucket::minute).findFirst().orElse(null);
+        // Geçiş yok: hata yok, uyarı yok, ya da uyarılar hatalardan sonra geldi
+        if (firstWarn == null || firstError == null || firstWarn.isAfter(firstError)) {
+            return null;
+        }
+        long gap = Duration.between(firstWarn, firstError).toMinutes();
+        return new WarnToErrorTransition(firstWarn, firstError, gap);
     }
 
     // Seviye → adet haritasını, şiddet sırasına göre düzenli biçimde kurar

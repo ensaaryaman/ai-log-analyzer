@@ -2,6 +2,10 @@ package com.ailoganalyzer.controller;
 
 import com.ailoganalyzer.dto.AnalysisResponse;
 import com.ailoganalyzer.service.AnalysisService;
+import com.ailoganalyzer.service.ReportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,9 +24,11 @@ import java.util.UUID;
 public class AnalysisController {
 
     private final AnalysisService analysisService;
+    private final ReportService reportService;
 
-    public AnalysisController(AnalysisService analysisService) {
+    public AnalysisController(AnalysisService analysisService, ReportService reportService) {
         this.analysisService = analysisService;
+        this.reportService = reportService;
     }
 
     // POST /api/logs/{id}/analyze — dosyayı yapay zekaya analiz ettirir (senkron)
@@ -43,4 +49,15 @@ public class AnalysisController {
     public AnalysisResponse getOne(@PathVariable UUID id) {
         return analysisService.getById(id);
     }
+
+    // GET /api/analyses/{id}/report.pdf — analizi indirilebilir PDF rapor olarak döner
+    @GetMapping("/api/analyses/{id}/report.pdf")
+    public ResponseEntity<byte[]> report(@PathVariable UUID id) {
+        byte[] pdf = reportService.generateAnalysisReport(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)   // Tarayıcı bunu PDF olarak tanır
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"analiz-raporu.pdf\"")   // indirme olarak sun
+                .body(pdf);
+    }
 }
+

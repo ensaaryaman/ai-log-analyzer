@@ -70,7 +70,7 @@ class AnalysisServiceImplTest {
         when(logFileRepository.findById(fileId)).thenReturn(Optional.of(file));
         when(statsService.computeStats(fileId)).thenReturn(new StatsResponse(
                 fileId, "SPRING_BOOT", 5, Map.of("ERROR", 2L, "WARN", 1L),
-                List.of(), List.of(), List.of(), null, null));
+                List.of(), List.of(), List.of(), null, null, null));
         when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(fileId)).thenReturn(List.of());
 
         AnalysisResult aiResult = new AnalysisResult(
