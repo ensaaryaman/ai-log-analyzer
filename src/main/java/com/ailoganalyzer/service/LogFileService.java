@@ -25,4 +25,7 @@ public interface LogFileService {
 
     // Bir dosyanın parse edilmiş kayıtlarını döner; level verilirse (null değilse) o seviyeye göre filtreler
     List<LogEntryResponse> getEntries(UUID fileId, LogLevel level);
+
+    // Bir log dosyasını ve ona bağlı tüm verileri (kayıtlar, gruplar, analizler, sohbet) siler
+    void delete(UUID id);
 }

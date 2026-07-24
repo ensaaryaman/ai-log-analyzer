@@ -120,8 +120,14 @@ body {
 }
 .file-item:hover { border-color: var(--primary); }
 .file-item.selected { border-color: var(--primary); background: var(--surface-2); }
+.file-item .fi-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .file-item .fi-name { font-weight: 600; font-size: 14px; word-break: break-all; }
 .file-item .fi-sub { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+.fi-del {
+    background: none; border: none; color: var(--muted); font-size: 12px;
+    cursor: pointer; padding: 2px 7px; border-radius: 6px; flex-shrink: 0;
+}
+.fi-del:hover { color: #fff; background: var(--p-critical); }
 
 /* --- Detay --- */
 .detail { min-height: 300px; }

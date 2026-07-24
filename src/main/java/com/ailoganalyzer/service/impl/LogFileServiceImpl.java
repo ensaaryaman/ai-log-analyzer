@@ -107,6 +107,18 @@ public class LogFileServiceImpl implements LogFileService {
         return entries.stream().map(LogEntryResponse::from).toList();
     }
 
+    // Silme: DB kaydını siler (bağlı kayıtlar/analizler/sohbet ON DELETE CASCADE ile gider), sonra diskteki ham dosyayı temizler
+    @Override
+    @Transactional
+    public void delete(UUID id) {
+        LogFile file = logFileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Log dosyası", id));
+        String storagePath = file.getStoragePath();
+
+        logFileRepository.delete(file);                 // Veritabanı kaydı (ve cascade ile alt kayıtlar) silinir
+        fileStorageService.deleteQuietly(storagePath);  // Diskteki ham dosyayı en iyi çaba ile sil
+    }
+
     // --- Yardımcı (private) metotlar: iş kurallarını okunur parçalara böler ---
 
     // Dosyanın boş olmadığını ve uzantısının izinli olduğunu doğrular

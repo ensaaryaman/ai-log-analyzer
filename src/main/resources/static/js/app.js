@@ -88,7 +88,10 @@ function renderFileList() {
     }
     box.innerHTML = state.files.map(f => `
         <div class="file-item ${f.id === state.selectedId ? 'selected' : ''}" data-id="${f.id}">
-            <div class="fi-name">${esc(f.filename)}</div>
+            <div class="fi-top">
+                <div class="fi-name">${esc(f.filename)}</div>
+                <button class="fi-del" data-del="${f.id}" title="Bu logu ve analizlerini sil">Sil</button>
+            </div>
             <div class="fi-sub">
                 <span>${f.detectedFormat || '—'}</span>
                 <span>${f.errorCount} hata</span>
@@ -96,9 +99,32 @@ function renderFileList() {
                 <span>${statusLabel(f.status)}</span>
             </div>
         </div>`).join('');
-    // Her öğeye tıklama olayı
+    // Karta tıklama → seç
     box.querySelectorAll('.file-item').forEach(el =>
         el.addEventListener('click', () => selectFile(el.dataset.id)));
+    // Sil butonuna tıklama → seçimi tetiklemeden sil
+    box.querySelectorAll('.fi-del').forEach(btn =>
+        btn.addEventListener('click', (e) => { e.stopPropagation(); deleteFile(btn.dataset.del); }));
+}
+
+// DELETE /api/logs/{id} → log dosyasını ve bağlı verilerini siler
+async function deleteFile(id) {
+    const file = state.files.find(f => f.id === id);
+    const name = file ? file.filename : 'bu log';
+    if (!confirm(`"${name}" ve tüm analizleri kalıcı olarak silinsin mi?`)) return;
+    try {
+        const res = await fetch(`/api/logs/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw await problem(res);
+        // Silinen dosya seçiliyse detay panelini kapat
+        if (state.selectedId === id) {
+            state.selectedId = null;
+            $('detailContent').classList.add('hidden');
+            $('detailEmpty').classList.remove('hidden');
+        }
+        await loadFiles();
+    } catch (err) {
+        alert('Silinemedi: ' + err.message);
+    }
 }
 
 /* ---------------- Seçili dosya detayı ---------------- */

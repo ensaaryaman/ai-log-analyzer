@@ -16,7 +16,9 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -66,5 +68,14 @@ class LogFileControllerTest {
         mockMvc.perform(multipart("/api/logs").file(empty))
                 .andExpect(status().isBadRequest())                   // 400
                 .andExpect(jsonPath("$.title").value("Geçersiz dosya"));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/logs/{id} → 204 No Content ve servis çağrılır")
+    void deleteReturnsNoContent() throws Exception {
+        UUID id = UUID.randomUUID();
+        mockMvc.perform(delete("/api/logs/{id}", id))
+                .andExpect(status().isNoContent());          // 204
+        verify(logFileService).delete(eq(id));               // silme servise devredildi
     }
 }
