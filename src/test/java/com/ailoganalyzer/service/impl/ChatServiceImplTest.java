@@ -39,12 +39,13 @@ class ChatServiceImplTest {
     @Mock private ChatMessageRepository chatMessageRepository;
     @Mock private ErrorGroupRepository errorGroupRepository;
     @Mock private ChatAiClient chatAiClient;
+    @Mock private com.ailoganalyzer.security.AccessControlService accessControl;   // requireAccess no-op (mock)
 
     @Test
     @DisplayName("Soru sorulunca kullanıcı + asistan mesajı kaydedilir ve yanıt döner")
     void askPersistsBothMessagesAndReturnsReply() {
         ChatServiceImpl service = new ChatServiceImpl(
-                analysisRepository, chatMessageRepository, errorGroupRepository, chatAiClient);
+                analysisRepository, chatMessageRepository, errorGroupRepository, chatAiClient, accessControl);
 
         UUID analysisId = UUID.randomUUID();
         LogFile file = new LogFile();
@@ -78,7 +79,7 @@ class ChatServiceImplTest {
     @DisplayName("Kaydedilen kullanıcı mesajı doğru rol ve içerikle oluşturulur")
     void savesUserMessageWithCorrectRole() {
         ChatServiceImpl service = new ChatServiceImpl(
-                analysisRepository, chatMessageRepository, errorGroupRepository, chatAiClient);
+                analysisRepository, chatMessageRepository, errorGroupRepository, chatAiClient, accessControl);
 
         UUID analysisId = UUID.randomUUID();
         LogFile file = new LogFile();

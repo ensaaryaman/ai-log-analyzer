@@ -7,6 +7,7 @@ import com.ailoganalyzer.exception.ResourceNotFoundException;
 import com.ailoganalyzer.exception.StorageException;
 import com.ailoganalyzer.repository.AnalysisRepository;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
+import com.ailoganalyzer.security.AccessControlService;
 import com.ailoganalyzer.service.ReportService;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
@@ -30,11 +31,14 @@ public class ReportServiceImpl implements ReportService {
 
     private final AnalysisRepository analysisRepository;
     private final ErrorGroupRepository errorGroupRepository;
+    private final AccessControlService accessControl;   // Sahiplik (yetkilendirme) kontrolü
 
     public ReportServiceImpl(AnalysisRepository analysisRepository,
-                             ErrorGroupRepository errorGroupRepository) {
+                             ErrorGroupRepository errorGroupRepository,
+                             AccessControlService accessControl) {
         this.analysisRepository = analysisRepository;
         this.errorGroupRepository = errorGroupRepository;
+        this.accessControl = accessControl;
     }
 
     // Lazy ilişkilere (analysis.getFile) erişildiği için okuma transaction'ı içinde çalışır
@@ -43,6 +47,7 @@ public class ReportServiceImpl implements ReportService {
     public byte[] generateAnalysisReport(UUID analysisId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new ResourceNotFoundException("Analiz", analysisId));
+        accessControl.requireAccess(analysis.getFile());   // Yalnızca dosyanın sahibi (veya ADMIN) rapor indirebilir
         LogFile file = analysis.getFile();
         List<ErrorGroup> groups = errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(file.getId());
 

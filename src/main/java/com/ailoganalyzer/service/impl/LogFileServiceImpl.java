@@ -9,6 +9,7 @@ import com.ailoganalyzer.exception.InvalidFileException;
 import com.ailoganalyzer.exception.ResourceNotFoundException;
 import com.ailoganalyzer.repository.LogEntryRepository;
 import com.ailoganalyzer.repository.LogFileRepository;
+import com.ailoganalyzer.security.AccessControlService;
 import com.ailoganalyzer.service.ErrorGroupingService;
 import com.ailoganalyzer.service.LogFileService;
 import com.ailoganalyzer.service.LogParsingService;
@@ -35,6 +36,7 @@ public class LogFileServiceImpl implements LogFileService {
     private final StorageProperties storageProperties;     // İzin verilen uzantı gibi kuralları buradan okuruz
     private final LogParsingService logParsingService;     // Ham içeriği parse edip kaydeden servis (arayüz)
     private final ErrorGroupingService errorGroupingService; // Parse sonrası tekrarlanan hataları gruplar (arayüz)
+    private final AccessControlService accessControl;      // Aktif kullanıcı + sahiplik (yetkilendirme) kontrolü
 
     // Tüm bağımlılıklar constructor ile enjekte edilir (final alanlar → değişmez, test edilebilir, açık bağımlılık)
     public LogFileServiceImpl(FileStorageService fileStorageService,
@@ -42,13 +44,15 @@ public class LogFileServiceImpl implements LogFileService {
                               LogEntryRepository logEntryRepository,
                               StorageProperties storageProperties,
                               LogParsingService logParsingService,
-                              ErrorGroupingService errorGroupingService) {
+                              ErrorGroupingService errorGroupingService,
+                              AccessControlService accessControl) {
         this.fileStorageService = fileStorageService;
         this.logFileRepository = logFileRepository;
         this.logEntryRepository = logEntryRepository;
         this.storageProperties = storageProperties;
         this.logParsingService = logParsingService;
         this.errorGroupingService = errorGroupingService;
+        this.accessControl = accessControl;
     }
 
     // Yükleme: DB'ye yazdığı için okuma-yazma transaction'ı içinde çalışır
@@ -60,8 +64,9 @@ public class LogFileServiceImpl implements LogFileService {
         String storagePath = fileStorageService.store(filename, content);  // Ham dosyayı sakla, yolunu al
         int lineCount = countLines(content);                // Hızlı ön satır sayısı
 
-        LogFile saved = logFileRepository.save(              // Entity'yi oluştur ve kalıcılaştır (durum: UPLOADED)
-                LogFile.newUpload(filename, content.length, lineCount, storagePath));
+        LogFile upload = LogFile.newUpload(filename, content.length, lineCount, storagePath);
+        upload.setOwner(accessControl.currentUser());        // Yükleyen kullanıcıyı sahibi olarak işaretle (sahiplik/audit)
+        LogFile saved = logFileRepository.save(upload);      // Entity'yi kalıcılaştır (durum: UPLOADED)
 
         // İçeriği metne çevirip parse et: log_entry kayıtları yazılır, özet güncellenir, durum PARSED olur.
         // (Aynı transaction içinde çalışır; 'saved' yönetilen entity olduğu için güncellemeler DTO'ya yansır.)
@@ -75,21 +80,25 @@ public class LogFileServiceImpl implements LogFileService {
     }
 
     // Listeleme: sadece okuma → readOnly transaction (Hibernate'e dirty-check yapma, performans)
+    // Sahiplik filtresi: ADMIN tüm dosyaları görür; USER yalnızca kendi yükledikleri.
     @Override
     @Transactional(readOnly = true)
     public List<LogFileSummaryResponse> listAll() {
-        return logFileRepository.findAllByOrderByUploadedAtDesc()
-                .stream()
+        List<LogFile> files = accessControl.isAdmin()
+                ? logFileRepository.findAllByOrderByUploadedAtDesc()
+                : logFileRepository.findByOwnerIdOrderByUploadedAtDesc(accessControl.currentUserId());
+        return files.stream()
                 .map(LogFileSummaryResponse::from)          // Her entity'yi DTO'ya çevir
                 .toList();
     }
 
-    // Tekil erişim: bulunamazsa 404'e karşılık gelen istisna fırlatılır
+    // Tekil erişim: bulunamazsa 404; başka kullanıcının dosyasıysa 403 (requireAccess)
     @Override
     @Transactional(readOnly = true)
     public LogFileSummaryResponse getById(UUID id) {
         LogFile file = logFileRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Log dosyası", id));
+        accessControl.requireAccess(file);
         return LogFileSummaryResponse.from(file);
     }
 
@@ -97,10 +106,10 @@ public class LogFileServiceImpl implements LogFileService {
     @Override
     @Transactional(readOnly = true)
     public List<LogEntryResponse> getEntries(UUID fileId, LogLevel level) {
-        // Önce dosyanın var olduğunu doğrula (yoksa filtre boş liste döndürmesin, net 404 verelim)
-        if (!logFileRepository.existsById(fileId)) {
-            throw new ResourceNotFoundException("Log dosyası", fileId);
-        }
+        // Önce dosyayı yükle: yoksa 404, sahibi değilsek 403 (var olduğunu görmeden erişim reddedilir)
+        LogFile file = logFileRepository.findById(fileId)
+                .orElseThrow(() -> new ResourceNotFoundException("Log dosyası", fileId));
+        accessControl.requireAccess(file);
         List<com.ailoganalyzer.domain.LogEntry> entries = (level == null)
                 ? logEntryRepository.findByFileIdOrderByLineNumberAsc(fileId)
                 : logEntryRepository.findByFileIdAndLevelOrderByLineNumberAsc(fileId, level);
@@ -113,6 +122,7 @@ public class LogFileServiceImpl implements LogFileService {
     public void delete(UUID id) {
         LogFile file = logFileRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Log dosyası", id));
+        accessControl.requireAccess(file);              // Başka kullanıcının logunu silmeye çalışan USER 403 alır
         String storagePath = file.getStoragePath();
 
         logFileRepository.delete(file);                 // Veritabanı kaydı (ve cascade ile alt kayıtlar) silinir

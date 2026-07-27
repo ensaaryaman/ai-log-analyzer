@@ -13,6 +13,7 @@ import com.ailoganalyzer.exception.ResourceNotFoundException;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
 import com.ailoganalyzer.repository.LogEntryRepository;
 import com.ailoganalyzer.repository.LogFileRepository;
+import com.ailoganalyzer.security.AccessControlService;
 import com.ailoganalyzer.service.StatsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,13 +38,16 @@ public class StatsServiceImpl implements StatsService {
     private final LogFileRepository logFileRepository;
     private final LogEntryRepository logEntryRepository;
     private final ErrorGroupRepository errorGroupRepository;
+    private final AccessControlService accessControl;   // Sahiplik (yetkilendirme) kontrolü
 
     public StatsServiceImpl(LogFileRepository logFileRepository,
                             LogEntryRepository logEntryRepository,
-                            ErrorGroupRepository errorGroupRepository) {
+                            ErrorGroupRepository errorGroupRepository,
+                            AccessControlService accessControl) {
         this.logFileRepository = logFileRepository;
         this.logEntryRepository = logEntryRepository;
         this.errorGroupRepository = errorGroupRepository;
+        this.accessControl = accessControl;
     }
 
     // Sadece okuma → readOnly transaction (lazy ilişkiler için oturum açık kalır, dirty-check yapılmaz)
@@ -52,6 +56,7 @@ public class StatsServiceImpl implements StatsService {
     public StatsResponse computeStats(UUID fileId) {
         LogFile file = logFileRepository.findById(fileId)
                 .orElseThrow(() -> new ResourceNotFoundException("Log dosyası", fileId));
+        accessControl.requireAccess(file);              // İstatistikler de sahiplik denetimine tabidir
 
         Map<String, Long> levelDistribution = levelDistribution(fileId);
         long total = levelDistribution.values().stream().mapToLong(Long::longValue).sum();

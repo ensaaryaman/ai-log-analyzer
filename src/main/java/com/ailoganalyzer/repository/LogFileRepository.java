@@ -17,4 +17,7 @@ public interface LogFileRepository extends JpaRepository<LogFile, UUID> {
 
     // En son yüklenenden en eskiye sıralı dosya listesi (geçmiş ekranı için). Metot adından sorgu üretilir.
     List<LogFile> findAllByOrderByUploadedAtDesc();
+
+    // Yalnızca belirli kullanıcıya ait dosyalar (USER, sahiplik filtresiyle sadece kendi loglarını görür).
+    List<LogFile> findByOwnerIdOrderByUploadedAtDesc(UUID ownerId);
 }

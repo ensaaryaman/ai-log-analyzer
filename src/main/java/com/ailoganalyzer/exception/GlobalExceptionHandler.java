@@ -2,6 +2,7 @@ package com.ailoganalyzer.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,6 +36,26 @@ public class GlobalExceptionHandler {
                 .map(f -> f.getDefaultMessage())
                 .findFirst().orElse("Geçersiz istek");
         return problem(HttpStatus.BAD_REQUEST, "Geçersiz istek", detail);
+    }
+
+    // Kullanıcı adı zaten alınmış (kayıt) → 409 Conflict
+    @ExceptionHandler(UsernameTakenException.class)
+    public ProblemDetail handleUsernameTaken(UsernameTakenException ex) {
+        return problem(HttpStatus.CONFLICT, "Kullanıcı adı alınmış", ex.getMessage());
+    }
+
+    // Hatalı kullanıcı adı/şifre (giriş) → 401 Unauthorized
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Giriş başarısız", ex.getMessage());
+    }
+
+    // Yetki reddi (başka kullanıcının logu vb.) → 403 Forbidden
+    // Servis katmanından fırlayan Spring Security AccessDeniedException'ı burada karşılarız
+    // (filtre zincirinde fırlayanları SecurityConfig'teki handler ele alır).
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+        return problem(HttpStatus.FORBIDDEN, "Yetkisiz", ex.getMessage());
     }
 
     // Dosya boyutu sınırı aşıldı → 413 Payload Too Large (multipart limitinden gelir)

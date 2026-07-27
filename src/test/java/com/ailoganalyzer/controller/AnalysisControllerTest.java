@@ -1,11 +1,14 @@
 package com.ailoganalyzer.controller;
 
 import com.ailoganalyzer.dto.AnalysisResponse;
+import com.ailoganalyzer.repository.AppUserRepository;
+import com.ailoganalyzer.security.JwtService;
 import com.ailoganalyzer.service.AnalysisService;
 import com.ailoganalyzer.service.ReportService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Analiz uç noktasının HTTP davranışını doğrular; servis mock'lanır.
  */
 @WebMvcTest(AnalysisController.class)
+@AutoConfigureMockMvc(addFilters = false)   // Güvenlik filtreleri kapalı: saf HTTP davranışı test edilir
 class AnalysisControllerTest {
 
     @Autowired
@@ -38,6 +42,10 @@ class AnalysisControllerTest {
 
     @MockitoBean                        // Controller artık ReportService'e de bağlı → mock'la
     private ReportService reportService;
+
+    // JwtAuthenticationFilter web slice'ına dahil → bağımlılıkları mock'lanır
+    @MockitoBean private JwtService jwtService;
+    @MockitoBean private AppUserRepository appUserRepository;
 
     @Test
     @DisplayName("POST /api/logs/{id}/analyze → 200 ve analiz özeti döner")

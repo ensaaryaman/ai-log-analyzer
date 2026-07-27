@@ -11,6 +11,7 @@ import com.ailoganalyzer.exception.ResourceNotFoundException;
 import com.ailoganalyzer.repository.AnalysisRepository;
 import com.ailoganalyzer.repository.ChatMessageRepository;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
+import com.ailoganalyzer.security.AccessControlService;
 import com.ailoganalyzer.service.ChatService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,15 +33,18 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final ErrorGroupRepository errorGroupRepository;
     private final ChatAiClient chatAiClient;   // Gerçek veya mock (profile göre)
+    private final AccessControlService accessControl;   // Sahiplik (yetkilendirme) kontrolü
 
     public ChatServiceImpl(AnalysisRepository analysisRepository,
                            ChatMessageRepository chatMessageRepository,
                            ErrorGroupRepository errorGroupRepository,
-                           ChatAiClient chatAiClient) {
+                           ChatAiClient chatAiClient,
+                           AccessControlService accessControl) {
         this.analysisRepository = analysisRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.errorGroupRepository = errorGroupRepository;
         this.chatAiClient = chatAiClient;
+        this.accessControl = accessControl;
     }
 
     // Soru sorma: DB'ye yazdığı için okuma-yazma transaction'ı
@@ -49,6 +53,7 @@ public class ChatServiceImpl implements ChatService {
     public ChatMessageResponse ask(UUID analysisId, String question) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new ResourceNotFoundException("Analiz", analysisId));
+        accessControl.requireAccess(analysis.getFile());   // Yalnızca dosyanın sahibi (veya ADMIN) sohbet edebilir
 
         String systemPrompt = buildSystemPrompt(analysis);
 
@@ -72,9 +77,9 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional(readOnly = true)
     public List<ChatMessageResponse> history(UUID analysisId) {
-        if (!analysisRepository.existsById(analysisId)) {
-            throw new ResourceNotFoundException("Analiz", analysisId);
-        }
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new ResourceNotFoundException("Analiz", analysisId));
+        accessControl.requireAccess(analysis.getFile());   // Sohbet geçmişi de sahiplik denetimine tabidir
         return chatMessageRepository.findByAnalysisIdOrderByCreatedAtAsc(analysisId)
                 .stream().map(ChatMessageResponse::from).toList();
     }

@@ -4,9 +4,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -67,6 +70,10 @@ public class LogFile {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private LogFileStatus status;
+
+    @ManyToOne(fetch = FetchType.LAZY)               // Dosyayı yükleyen kullanıcı (sahiplik/yetkilendirme için)
+    @JoinColumn(name = "owner_id")                   // Nullable: eski (login öncesi) kayıtlar sahipsiz → yalnızca ADMIN görür
+    private AppUser owner;
 
     // Yükleme anında yeni bir LogFile oluşturmak için kullanılır (parse öncesi durum = UPLOADED)
     public static LogFile newUpload(String filename, long sizeBytes, int lineCount, String storagePath) {

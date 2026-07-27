@@ -43,6 +43,32 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- Güvenlik: kimlik doğrulama/yetkilendirme altyapısı (SecurityFilterChain, BCrypt PasswordEncoder).
+		     Oturum yerine JWT bearer token ile stateless kullanılır (bkz. SecurityConfig). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
+		<!-- JJWT: JWT üretme/doğrulama (HMAC-SHA256). api derleme, impl+jackson yalnızca çalışma zamanı. -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.12.6</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.12.6</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId> <!-- JWT claim'lerini JSON'a serileştirir (Jackson köprüsü) -->
+			<version>0.12.6</version>
+			<scope>runtime</scope>
+		</dependency>
+
 		<!-- Kalıcılık: JPA + Hibernate + Spring Data repository altyapısı -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -112,6 +138,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- Spring Security test yardımcıları: @WithMockUser, SecurityMockMvc post-processor'ları -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<!-- Testcontainers'ı Spring Boot ile entegre eder (@ServiceConnection) -->

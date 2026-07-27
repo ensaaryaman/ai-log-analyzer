@@ -17,6 +17,7 @@ import com.ailoganalyzer.exception.ResourceNotFoundException;
 import com.ailoganalyzer.repository.AnalysisRepository;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
 import com.ailoganalyzer.repository.LogFileRepository;
+import com.ailoganalyzer.security.AccessControlService;
 import com.ailoganalyzer.service.AnalysisService;
 import com.ailoganalyzer.service.StatsService;
 import org.springframework.stereotype.Service;
@@ -46,19 +47,22 @@ public class AnalysisServiceImpl implements AnalysisService {
     private final StatsService statsService;             // Seviye dağılımı/sayaçlar için (Gün 3)
     private final AnalysisPromptBuilder promptBuilder;   // Bağlam → prompt (saf)
     private final AnalysisAiClient aiClient;             // Gerçek veya mock (profile göre seçilir)
+    private final AccessControlService accessControl;    // Sahiplik (yetkilendirme) kontrolü
 
     public AnalysisServiceImpl(LogFileRepository logFileRepository,
                                ErrorGroupRepository errorGroupRepository,
                                AnalysisRepository analysisRepository,
                                StatsService statsService,
                                AnalysisPromptBuilder promptBuilder,
-                               AnalysisAiClient aiClient) {
+                               AnalysisAiClient aiClient,
+                               AccessControlService accessControl) {
         this.logFileRepository = logFileRepository;
         this.errorGroupRepository = errorGroupRepository;
         this.analysisRepository = analysisRepository;
         this.statsService = statsService;
         this.promptBuilder = promptBuilder;
         this.aiClient = aiClient;
+        this.accessControl = accessControl;
     }
 
     // Analiz DB'ye yazdığı için okuma-yazma transaction'ı içinde çalışır
@@ -67,6 +71,7 @@ public class AnalysisServiceImpl implements AnalysisService {
     public AnalysisResponse analyze(UUID fileId) {
         LogFile file = logFileRepository.findById(fileId)
                 .orElseThrow(() -> new ResourceNotFoundException("Log dosyası", fileId));
+        accessControl.requireAccess(file);              // Yalnızca sahibi (veya ADMIN) analiz başlatabilir
 
         PromptContext context = buildContext(file);
         AnalysisPrompt prompt = promptBuilder.build(context);
@@ -87,23 +92,39 @@ public class AnalysisServiceImpl implements AnalysisService {
     @Override
     @Transactional(readOnly = true)
     public AnalysisResponse getById(UUID analysisId) {
-        return analysisRepository.findById(analysisId)
-                .map(AnalysisResponse::from)
+        Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new ResourceNotFoundException("Analiz", analysisId));
+        accessControl.requireAccess(analysis.getFile());   // Analiz, bağlı olduğu dosyanın sahiplik kuralına tabidir
+        return AnalysisResponse.from(analysis);
     }
 
+    // Tüm analizler; USER için yalnızca kendi dosyalarına ait olanlar süzülür (ADMIN hepsini görür)
     @Override
     @Transactional(readOnly = true)
     public List<AnalysisResponse> listAll() {
+        boolean admin = accessControl.isAdmin();
+        UUID me = admin ? null : accessControl.currentUserId();
         return analysisRepository.findAllByOrderByCreatedAtDesc()
-                .stream().map(AnalysisResponse::from).toList();
+                .stream()
+                .filter(a -> admin || isOwnedBy(a, me))
+                .map(AnalysisResponse::from)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AnalysisResponse> listByFile(UUID fileId) {
+        LogFile file = logFileRepository.findById(fileId)
+                .orElseThrow(() -> new ResourceNotFoundException("Log dosyası", fileId));
+        accessControl.requireAccess(file);
         return analysisRepository.findByFileIdOrderByCreatedAtDesc(fileId)
                 .stream().map(AnalysisResponse::from).toList();
+    }
+
+    // Analizin bağlı olduğu dosya verilen kullanıcıya mı ait? (sahipsiz dosya → hayır)
+    private boolean isOwnedBy(Analysis analysis, UUID userId) {
+        return analysis.getFile().getOwner() != null
+                && analysis.getFile().getOwner().getId().equals(userId);
     }
 
     // --- Yardımcı metotlar ---

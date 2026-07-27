@@ -27,9 +27,32 @@
     </div>
     <div class="header-right">
         <span id="providerBadge" class="provider-badge" title="Aktif yapay zeka modeli"></span>
+        <span id="userChip" class="user-chip hidden" title="Giriş yapan kullanıcı"></span>
+        <button id="logoutBtn" class="theme-toggle hidden" type="button">Çıkış Yap</button>
         <button id="themeToggle" class="theme-toggle" type="button"></button>
     </div>
 </header>
+
+<!-- Giriş/Kayıt katmanı: token yoksa ana içeriğin üzerini kaplar -->
+<div id="authOverlay" class="auth-overlay hidden">
+    <div class="auth-card">
+        <div class="auth-brand">
+            <h2 class="auth-title">AI Log Analyzer</h2>
+            <p class="auth-sub muted">Devam etmek için giriş yapın</p>
+        </div>
+        <div class="auth-tabs" id="authTabs">
+            <button class="auth-tab active" type="button" data-auth-tab="login">Giriş Yap</button>
+            <button class="auth-tab" type="button" data-auth-tab="register">Kayıt Ol</button>
+        </div>
+        <form id="authForm" class="auth-form" autocomplete="off">
+            <input id="authUsername" class="auth-input" type="text" placeholder="Kullanıcı adı" required>
+            <input id="authPassword" class="auth-input" type="password" placeholder="Şifre" required>
+            <p id="authError" class="auth-error"></p>
+            <button type="submit" id="authSubmit" class="btn-primary auth-submit">Giriş Yap</button>
+        </form>
+        <p class="auth-hint muted">Varsayılan yönetici: <code>admin / admin123</code></p>
+    </div>
+</div>
 
 <main class="main">
 

@@ -17,12 +17,109 @@ const state = {
 // --- DOM kısayolları ---
 const $ = (id) => document.getElementById(id);
 
-// Sayfa yüklenince: tema/sekme/yükleme olaylarını bağla ve mevcut logları getir
+// Sayfa yüklenince: her zaman tema/sekme/yükleme/giriş olaylarını bağla, sonra oturumu doğrula
 document.addEventListener('DOMContentLoaded', async () => {
     $('providerBadge').textContent = 'Spring AI';
     bindTheme();
     bindTabs();
     bindUpload();
+    bindAuth();
+    await ensureAuthenticated();
+});
+
+/* ---------------- Kimlik doğrulama (JWT) ---------------- */
+
+const TOKEN_KEY = 'authToken';
+const token = () => localStorage.getItem(TOKEN_KEY);
+const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+// Token varsa Authorization header'ı üretir (yoksa boş nesne)
+function authHeaders() {
+    const t = token();
+    return t ? { Authorization: 'Bearer ' + t } : {};
+}
+
+/**
+ * Kimlik doğrulamalı fetch sarmalayıcısı: her isteğe token'ı ekler.
+ * 401 dönerse oturum bitmiştir → token temizlenir ve giriş ekranı gösterilir.
+ * Tüm /api çağrıları (giriş/kayıt hariç) bunu kullanır.
+ */
+async function api(url, opts = {}) {
+    const headers = Object.assign({}, opts.headers || {}, authHeaders());
+    const res = await fetch(url, Object.assign({}, opts, { headers }));
+    if (res.status === 401) {
+        clearToken();
+        showLogin();
+        throw new Error('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
+    }
+    return res;
+}
+
+// Açılışta: token yoksa giriş ekranı; varsa /me ile doğrula, geçerliyse uygulamayı başlat
+async function ensureAuthenticated() {
+    if (!token()) { showLogin(); return; }
+    try {
+        const res = await fetch('/api/auth/me', { headers: authHeaders() });
+        if (!res.ok) { clearToken(); showLogin(); return; }
+        onLoggedIn(await res.json());
+    } catch {
+        showLogin();   // Ağ hatası vb. → güvenli tarafta kal
+    }
+}
+
+// Giriş/kayıt ekranı olay bağlama: sekme geçişi, form gönderimi, çıkış butonu
+function bindAuth() {
+    // Giriş / Kayıt sekmeleri
+    $('authTabs').querySelectorAll('.auth-tab').forEach(btn =>
+        btn.addEventListener('click', () => setAuthMode(btn.dataset.authTab)));
+    $('authForm').addEventListener('submit', onAuthSubmit);
+    $('logoutBtn').addEventListener('click', logout);
+}
+
+let authMode = 'login';   // 'login' | 'register'
+
+function setAuthMode(mode) {
+    authMode = mode;
+    $('authTabs').querySelectorAll('.auth-tab').forEach(b =>
+        b.classList.toggle('active', b.dataset.authTab === mode));
+    $('authSubmit').textContent = mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+    $('authError').textContent = '';
+}
+
+// Giriş veya kayıt isteğini gönderir (bu iki uç herkese açıktır → token gerekmez)
+async function onAuthSubmit(e) {
+    e.preventDefault();
+    const username = $('authUsername').value.trim();
+    const password = $('authPassword').value;
+    const errBox = $('authError');
+    errBox.textContent = '';
+    const submit = $('authSubmit');
+    submit.disabled = true;
+
+    const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        });
+        if (!res.ok) throw await problem(res);
+        const auth = await res.json();
+        setToken(auth.token);
+        $('authForm').reset();
+        onLoggedIn(auth);
+    } catch (err) {
+        errBox.textContent = err.message;
+    } finally {
+        submit.disabled = false;
+    }
+}
+
+// Başarılı girişten sonra: ekranı aç, kullanıcı bilgisini göster, verileri yükle
+async function onLoggedIn(user) {
+    hideLogin();
+    showUser(user);
     await loadFiles();
     // Deep-link: /?file=<id>&tab=<sekme> verilirse o logu otomatik seç (paylaşılabilir bağlantı)
     const params = new URLSearchParams(location.search);
@@ -32,7 +129,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tab = params.get('tab');
         if (tab) showTab(tab);
     }
-});
+}
+
+// Üst başlıkta kullanıcı adı (+ ADMIN rozeti) ve "Çıkış Yap" düğmesini gösterir
+function showUser(user) {
+    const chip = $('userChip');
+    chip.textContent = user.role === 'ADMIN' ? `${user.username} (ADMIN)` : user.username;
+    chip.classList.remove('hidden');
+    $('logoutBtn').classList.remove('hidden');
+}
+
+// Çıkış: token'ı sil, durumu temizle, giriş ekranını göster
+function logout() {
+    clearToken();
+    state.files = [];
+    state.selectedId = null;
+    state.stats = null;
+    renderFileList();
+    $('detailContent').classList.add('hidden');
+    $('detailEmpty').classList.remove('hidden');
+    $('userChip').classList.add('hidden');
+    $('logoutBtn').classList.add('hidden');
+    showLogin();
+}
+
+function showLogin() {
+    setAuthMode('login');
+    $('authError').textContent = '';
+    $('authOverlay').classList.remove('hidden');
+}
+
+function hideLogin() {
+    $('authOverlay').classList.add('hidden');
+}
 
 /* ---------------- Tema (açık/koyu) ---------------- */
 
@@ -110,7 +239,7 @@ async function uploadFile(file) {
     form.append('file', file);
 
     try {
-        const res = await fetch('/api/logs', { method: 'POST', body: form });
+        const res = await api('/api/logs', { method: 'POST', body: form });
         if (!res.ok) throw await problem(res);
         const summary = await res.json();
         status.className = 'upload-status ok';
@@ -128,7 +257,8 @@ async function uploadFile(file) {
 // GET /api/logs → durumu güncelle ve listeyi çiz
 async function loadFiles() {
     try {
-        const res = await fetch('/api/logs');
+        const res = await api('/api/logs');
+        if (!res.ok) return;   // 401 zaten api() içinde ele alınır (giriş ekranı)
         state.files = await res.json();
         renderFileList();
     } catch (err) {
@@ -169,7 +299,7 @@ async function deleteFile(id) {
     const name = file ? file.filename : 'bu log';
     if (!confirm(`"${name}" ve tüm analizleri kalıcı olarak silinsin mi?`)) return;
     try {
-        const res = await fetch(`/api/logs/${id}`, { method: 'DELETE' });
+        const res = await api(`/api/logs/${id}`, { method: 'DELETE' });
         if (!res.ok) throw await problem(res);
         // Silinen dosya seçiliyse detay panelini kapat
         if (state.selectedId === id) {
@@ -204,8 +334,8 @@ async function selectFile(id) {
 
     // İstatistik ve geçmiş analizleri paralel getir
     const [stats, analyses] = await Promise.all([
-        fetch(`/api/logs/${id}/stats`).then(r => r.json()),
-        fetch(`/api/analyses?fileId=${id}`).then(r => r.json()),
+        api(`/api/logs/${id}/stats`).then(r => r.json()),
+        api(`/api/analyses?fileId=${id}`).then(r => r.json()),
     ]);
     state.stats = stats;
     renderStats(stats);
@@ -392,7 +522,7 @@ async function loadEntries(fileId, level) {
     box.innerHTML = '<div class="entry-note muted">yükleniyor...</div>';
     try {
         const url = `/api/logs/${fileId}/entries` + (level ? `?level=${level}` : '');
-        const entries = await fetch(url).then(r => r.json());
+        const entries = await api(url).then(r => r.json());
         renderEntries(entries);
     } catch {
         box.innerHTML = '<div class="entry-note muted">Kayıtlar yüklenemedi.</div>';
@@ -466,12 +596,12 @@ async function analyzeFile(id) {
         <span>Yapay zeka analiz ediyor... (10-20 saniye sürebilir)</span></div>`;
 
     try {
-        const res = await fetch(`/api/logs/${id}/analyze`, { method: 'POST' });
+        const res = await api(`/api/logs/${id}/analyze`, { method: 'POST' });
         if (!res.ok) throw await problem(res);
         const analysis = await res.json();
         $('providerBadge').textContent = analysis.model || 'Spring AI';
         // Yeni sonucu göster ve geçmişi/listeyi tazele (durum rozetleri değişmiş olabilir)
-        const analyses = await fetch(`/api/analyses?fileId=${id}`).then(r => r.json());
+        const analyses = await api(`/api/analyses?fileId=${id}`).then(r => r.json());
         renderHistory(analyses);
         loadFiles();
     } catch (err) {
@@ -513,7 +643,7 @@ function renderAnalysisCard(a) {
                 <div class="conf-lbl">Güven: %${conf}</div>
                 <div class="conf-bar"><div class="conf-fill ${cc}" style="width:${conf}%"></div></div>
             </div>
-            <a class="btn-sm" href="/api/analyses/${a.id}/report.pdf" title="Analizi PDF olarak indir">PDF İndir</a>
+            <button type="button" class="btn-sm" data-pdf="${a.id}" title="Analizi PDF olarak indir">PDF İndir</button>
         </div>
         <div>
             <div class="analysis-label">Özet</div>
@@ -553,6 +683,28 @@ function bindAnalysisEvents(area) {
         }));
     area.querySelectorAll('.ev-chip').forEach(chip =>
         chip.addEventListener('click', () => jumpToLine(chip.dataset.line)));
+    // PDF: token header'ı anchor ile gönderilemez → auth'lu fetch ile blob indir
+    area.querySelectorAll('[data-pdf]').forEach(btn =>
+        btn.addEventListener('click', () => downloadPdf(btn.dataset.pdf)));
+}
+
+// Analiz PDF'ini kimlik doğrulamalı olarak indirir (blob → geçici bağlantı)
+async function downloadPdf(id) {
+    try {
+        const res = await api(`/api/analyses/${id}/report.pdf`);
+        if (!res.ok) throw await problem(res);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'analiz-raporu.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        alert('PDF indirilemedi: ' + err.message);
+    }
 }
 
 // Güven değerini (0-1) renk sınıfına eşler: yüksek=yeşil, orta=sarı, düşük=kırmızı
@@ -591,7 +743,7 @@ function renderChat(analyses) {
 // GET /api/analyses/{id}/chat → geçmiş mesajları çizer
 async function loadChatHistory(analysisId) {
     try {
-        const msgs = await fetch(`/api/analyses/${analysisId}/chat`).then(r => r.json());
+        const msgs = await api(`/api/analyses/${analysisId}/chat`).then(r => r.json());
         renderChatMessages(msgs);
     } catch { /* geçmiş yüklenemezse sessiz geç */ }
 }
@@ -628,7 +780,7 @@ async function onChatSubmit(e) {
     btn.disabled = true; input.disabled = true;
 
     try {
-        const res = await fetch(`/api/analyses/${state.chatAnalysisId}/chat`, {
+        const res = await api(`/api/analyses/${state.chatAnalysisId}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ question }),

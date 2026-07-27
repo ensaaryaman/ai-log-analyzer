@@ -1,10 +1,13 @@
 package com.ailoganalyzer.controller;
 
 import com.ailoganalyzer.dto.ChatMessageResponse;
+import com.ailoganalyzer.repository.AppUserRepository;
+import com.ailoganalyzer.security.JwtService;
 import com.ailoganalyzer.service.ChatService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -24,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Sohbet ucunun HTTP davranışını ve boş-soru doğrulamasını (400) test eder.
  */
 @WebMvcTest(ChatController.class)
+@AutoConfigureMockMvc(addFilters = false)   // Güvenlik filtreleri kapalı: saf HTTP davranışı test edilir
 class ChatControllerTest {
 
     @Autowired
@@ -31,6 +35,10 @@ class ChatControllerTest {
 
     @MockitoBean
     private ChatService chatService;
+
+    // JwtAuthenticationFilter web slice'ına dahil → bağımlılıkları mock'lanır
+    @MockitoBean private JwtService jwtService;
+    @MockitoBean private AppUserRepository appUserRepository;
 
     @Test
     @DisplayName("Geçerli soru → 200 ve asistan yanıtı döner")

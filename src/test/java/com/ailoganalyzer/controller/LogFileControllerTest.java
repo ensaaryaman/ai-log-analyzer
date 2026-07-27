@@ -1,11 +1,14 @@
 package com.ailoganalyzer.controller;
 
 import com.ailoganalyzer.dto.LogFileSummaryResponse;
+import com.ailoganalyzer.repository.AppUserRepository;
+import com.ailoganalyzer.security.JwtService;
 import com.ailoganalyzer.service.LogFileService;
 import com.ailoganalyzer.service.StatsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -29,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Amaç: HTTP davranışını doğrulamak (multipart yükleme, durum kodları, hata eşlemesi).
  */
 @WebMvcTest(LogFileController.class)   // Sadece bu controller + web altyapısı + istisna yakalayıcı yüklenir
+@AutoConfigureMockMvc(addFilters = false)   // Güvenlik filtrelerini kapat: burada saf HTTP davranışı test edilir (auth ayrı testlerde)
 class LogFileControllerTest {
 
     @Autowired
@@ -39,6 +43,10 @@ class LogFileControllerTest {
 
     @MockitoBean                        // Controller artık StatsService'e de bağlı → onu da mock'la (bağlam kurulabilsin)
     private StatsService statsService;
+
+    // JwtAuthenticationFilter web slice'ına dahil edilir; bağımlılıkları mock'lanır (filtre çalışmıyor ama örneklenmeli)
+    @MockitoBean private JwtService jwtService;
+    @MockitoBean private AppUserRepository appUserRepository;
 
     @Test
     @DisplayName("Geçerli dosya yüklenince 201 Created ve özet döner")

@@ -44,15 +44,17 @@ class AnalysisServiceImplTest {
     @Mock private AnalysisRepository analysisRepository;
     @Mock private com.ailoganalyzer.service.StatsService statsService;
     @Mock private AnalysisAiClient aiClient;
+    @Mock private com.ailoganalyzer.security.AccessControlService accessControl;
 
     private AnalysisServiceImpl service;
 
     @BeforeEach
     void setUp() {
         // promptBuilder gerçek (saf) kullanılır → bağlam→prompt entegrasyonu da test edilmiş olur
+        // accessControl mock (requireAccess no-op) → sahiplik kontrolü ayrı testlerde doğrulanır
         service = new AnalysisServiceImpl(
                 logFileRepository, errorGroupRepository, analysisRepository,
-                statsService, new AnalysisPromptBuilder(), aiClient);
+                statsService, new AnalysisPromptBuilder(), aiClient, accessControl);
     }
 
     @Test
