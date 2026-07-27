@@ -4,122 +4,133 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Log Analyzer</title>
+    <!-- Tema, CSS yüklenmeden önce belirlenir ki açılışta yanlış renk yanıp sönmesin -->
+    <script>
+        (function () {
+            var saved = localStorage.getItem('theme');
+            var dark = saved ? saved === 'dark'
+                : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        })();
+    </script>
     <link rel="stylesheet" href="/css/styles.css">
     <!-- Favicon: SVG ile çizilmiş büyüteç (emoji değil, harici istek yok) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='13' cy='13' r='8' fill='none' stroke='%234f46e5' stroke-width='3'/><line x1='18.5' y1='18.5' x2='27' y2='27' stroke='%234f46e5' stroke-width='3' stroke-linecap='round'/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='13' cy='13' r='8' fill='none' stroke='%2310b981' stroke-width='3'/><line x1='18.5' y1='18.5' x2='27' y2='27' stroke='%2310b981' stroke-width='3' stroke-linecap='round'/></svg>">
 </head>
 <body>
 
-<!-- Üst başlık -->
+<!-- Üst başlık: sol = uygulama adı, sağ = model rozeti + tema düğmesi -->
 <header class="app-header">
-    <div class="container header-inner">
-        <div class="brand">
-            <div>
-                <h1>AI Log Analyzer</h1>
-                <p class="tagline">Log dosyalarını yapay zeka ile analiz edin — hata nedeni, çözüm ve öncelik</p>
-            </div>
-        </div>
+    <div>
+        <h1 class="app-title">AI Log Analyzer</h1>
+        <p class="app-subtitle">Log dosyalarını yapay zeka ile analiz edin</p>
+    </div>
+    <div class="header-right">
         <span id="providerBadge" class="provider-badge" title="Aktif yapay zeka modeli"></span>
+        <button id="themeToggle" class="theme-toggle" type="button"></button>
     </div>
 </header>
 
-<main class="container">
+<main class="main">
 
-    <!-- Yükleme alanı -->
+    <!-- Yükleme alanı (sürükle-bırak + dosya seç) -->
     <section class="upload-card" id="dropZone">
-        <div class="upload-inner">
-            <h2>Log dosyası yükleyin</h2>
-            <p class="muted">.log veya .txt dosyasını buraya sürükleyin ya da seçin (maks. 10 MB)</p>
-            <label class="btn btn-primary">
-                <input type="file" id="fileInput" accept=".log,.txt" hidden>
-                Dosya Seç
-            </label>
-            <p id="uploadStatus" class="upload-status"></p>
-        </div>
+        <h2 class="upload-title">Log dosyası yükleyin</h2>
+        <p class="upload-subtitle">.log / .txt — sürükleyip bırakın veya seçin (maks. 10 MB)</p>
+        <label class="btn-primary">
+            <input type="file" id="fileInput" accept=".log,.txt" hidden>
+            Dosya Seç
+        </label>
+        <p id="uploadStatus" class="upload-status"></p>
     </section>
 
-    <!-- İki sütunlu düzen: sol = yüklenen loglar, sağ = seçili log detayı -->
+    <!-- İki sütun: sol = yüklenen loglar, sağ = seçili log (sekmeli) -->
     <div class="grid">
 
-        <!-- SOL: yüklenen dosyalar listesi -->
-        <aside class="panel">
-            <h3 class="panel-title">Yüklenen Loglar</h3>
+        <aside class="left-panel">
+            <h3 class="left-heading">Yüklenen Loglar</h3>
             <div id="fileList" class="file-list">
                 <p class="empty muted">Henüz dosya yok. Yukarıdan bir log yükleyin.</p>
             </div>
         </aside>
 
-        <!-- SAĞ: seçili dosyanın detayı + analiz -->
-        <section class="panel detail">
-            <div id="detailEmpty" class="empty muted detail-empty">
-                Bir log seçin ya da yeni bir dosya yükleyin.
+        <section class="right-panel">
+            <div id="detailEmpty" class="detail-empty">
+                <div class="de-title">Görüntülenecek log yok</div>
+                <div class="de-text muted">Bir log seçin veya yeni bir dosya yükleyin.</div>
             </div>
 
             <div id="detailContent" class="hidden">
-                <!-- Dosya özeti -->
-                <div class="detail-header">
+                <!-- Dosya başlığı + analiz butonu -->
+                <div class="log-header-row">
                     <div>
-                        <h3 id="detailFilename">—</h3>
-                        <div id="detailMeta" class="detail-meta"></div>
+                        <h3 id="detailFilename" class="log-title">—</h3>
+                        <div id="detailMeta" class="log-meta"></div>
                     </div>
-                    <button id="analyzeBtn" class="btn btn-accent">Yapay Zeka ile Analiz Et</button>
+                    <button id="analyzeBtn" class="btn-accent">Yapay Zeka ile Analiz Et</button>
                 </div>
 
-                <!-- İstatistik rozetleri -->
-                <div id="statChips" class="stat-chips"></div>
+                <!-- Sekme çubuğu -->
+                <div class="tab-bar" id="tabBar">
+                    <button class="tab-btn active" data-tab="overview">Genel Bakış</button>
+                    <button class="tab-btn" data-tab="records">Kayıtlar</button>
+                    <button class="tab-btn" data-tab="analysis">Analiz</button>
+                    <button class="tab-btn" data-tab="chat">Sohbet</button>
+                </div>
 
-                <!-- Dashboard: grafikler (Chart.js) -->
-                <div class="dashboard">
+                <!-- SEKME: Genel Bakış -->
+                <div class="tab-content" id="tab-overview">
+                    <div id="statChips" class="stat-grid"></div>
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h4 class="chart-title">Seviye Dağılımı</h4>
+                            <div class="chart-wrap"><canvas id="levelChart"></canvas></div>
+                        </div>
+                        <div class="chart-card">
+                            <h4 class="chart-title">En Sık İstisnalar</h4>
+                            <div class="chart-wrap"><canvas id="exceptionsChart"></canvas></div>
+                        </div>
+                    </div>
                     <div class="chart-card">
-                        <h4>Seviye Dağılımı</h4>
-                        <div class="chart-wrap"><canvas id="levelChart"></canvas></div>
+                        <h4 class="chart-title">Zaman Serisi — Dakikalık WARN / ERROR</h4>
+                        <div class="chart-wrap wide"><canvas id="timelineChart"></canvas></div>
                     </div>
-                    <div class="chart-card">
-                        <h4>En Sık İstisnalar</h4>
-                        <div class="chart-wrap"><canvas id="exceptionsChart"></canvas></div>
-                    </div>
-                    <div class="chart-card wide">
-                        <h4>Zaman Serisi — Dakikalık WARN / ERROR</h4>
-                        <div class="chart-wrap"><canvas id="timelineChart"></canvas></div>
+                    <div id="transitionInsight"></div>
+                </div>
+
+                <!-- SEKME: Kayıtlar -->
+                <div class="tab-content hidden" id="tab-records">
+                    <div id="errorGroups"></div>
+                    <div>
+                        <div class="table-heading-row">
+                            <h4 class="section-heading">Log Kayıtları</h4>
+                            <select id="levelFilter" class="filter-select" title="Seviyeye göre filtrele">
+                                <option value="">Tüm seviyeler</option>
+                                <option value="FATAL">FATAL</option>
+                                <option value="ERROR">ERROR</option>
+                                <option value="WARN">WARN</option>
+                                <option value="INFO">INFO</option>
+                                <option value="DEBUG">DEBUG</option>
+                                <option value="TRACE">TRACE</option>
+                            </select>
+                        </div>
+                        <div id="entriesTable" class="entries-table" style="margin-top:12px"></div>
                     </div>
                 </div>
 
-                <!-- WARN→ERROR geçiş içgörüsü (varsa) -->
-                <div id="transitionInsight"></div>
-
-                <!-- Tekrarlanan hata grupları -->
-                <div id="errorGroups" class="error-groups"></div>
-
-                <!-- Parse edilmiş kayıtlar (seviye filtreli tablo) -->
-                <div class="entries-section">
-                    <div class="entries-head">
-                        <h4>Log Kayıtları</h4>
-                        <select id="levelFilter" title="Seviyeye göre filtrele">
-                            <option value="">Tüm seviyeler</option>
-                            <option value="FATAL">FATAL</option>
-                            <option value="ERROR">ERROR</option>
-                            <option value="WARN">WARN</option>
-                            <option value="INFO">INFO</option>
-                            <option value="DEBUG">DEBUG</option>
-                            <option value="TRACE">TRACE</option>
-                        </select>
-                    </div>
-                    <div id="entriesTable" class="entries-table"></div>
+                <!-- SEKME: Analiz -->
+                <div class="tab-content hidden" id="tab-analysis">
+                    <div id="analysisArea"></div>
                 </div>
 
-                <!-- Analiz sonucu / yükleniyor / geçmiş buraya gelir -->
-                <div id="analysisArea"></div>
-
-                <!-- Log ile sohbet (bir analiz varsa görünür) -->
-                <div id="chatArea"></div>
+                <!-- SEKME: Sohbet -->
+                <div class="tab-content hidden" id="tab-chat">
+                    <div id="chatArea"></div>
+                </div>
             </div>
         </section>
     </div>
 </main>
-
-<footer class="app-footer container">
-    <span>AI Log Analyzer · Spring Boot + Spring AI + PostgreSQL</span>
-</footer>
 
 <!-- Chart.js (yerel kopya — harici bağımlılık yok); app.js'ten önce yüklenmeli -->
 <script src="/js/vendor/chart.umd.min.js"></script>
