@@ -6,7 +6,8 @@
 |---|---|---|
 | AI sağlayıcı | **Google Gemini** (`gemini-2.5-flash`) | Ücretsiz tier'ı cömert, hızlı, Spring AI'ın OpenAI-uyumlu veya Vertex starter'ı ile çalışır. OpenAI yedek plan. |
 | Frontend | Spring Boot'un servis ettiği **statik SPA** (vanilla JS + Chart.js) | Ayrı React projesi 10 günde ekstra yük; tek jar ile deploy "temiz iş" izlenimi verir. |
-| Kimlik doğrulama | **Yok** (MVP) | Gereksinimlerde yok; süre kısıtı var. İstenirse gün 9-10'da basit API key eklenebilir. |
+| Kimlik doğrulama | **JWT tabanlı login + rol (ADMIN/USER)** — kapsam sonradan genişletildi, Gün 9'da eklenir | Staj sorumlusunun talebi: çoklu kullanıcı senaryosu (her kullanıcı kendi loglarını görür, ADMIN hepsini görür) + audit izi göstermek için. MVP'de yoktu; bkz. Bölüm 6. |
+| Dağıtım (deployment) | **Docker Compose ile uygulama + veritabanı birlikte** — Gün 10'da eklenir | Şu ana kadar yalnızca PostgreSQL container'daydı, uygulama elle çalıştırılıyordu. Değerlendiren kişinin Java/Maven kurmadan tek komutla ürünü çalıştırabilmesi için kapsam genişletildi; bkz. Bölüm 7. |
 | Dosya limiti | 10 MB, `.log` / `.txt` | Token maliyeti ve bellek kontrolü. |
 | Java / Spring | Java 21, Spring Boot 3.4.x, Spring AI 1.0.x | Güncel LTS + stabil Spring AI. |
 | Analiz modu | MVP'de **senkron** (istek ~10-30 sn sürer), gün 8+'da async status polling opsiyonel | Async kuyruk (queue) 10 günlük projede gereksiz karmaşıklık. |
@@ -19,13 +20,16 @@ Klasik katmanlı mimari + AI entegrasyonunu izole eden bir servis katmanı:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Browser (statik SPA: upload, sonuç ekranı, dashboard, chat) │
+│  Browser (statik SPA: login, upload, sonuç ekranı,           │
+│           dashboard, chat)                                    │
 └──────────────────────────┬───────────────────────────────────┘
-                           │ REST / JSON
+                           │ REST / JSON (Authorization: Bearer <jwt>)
 ┌──────────────────────────▼───────────────────────────────────┐
+│  Spring Security Filter Chain — JWT doğrulama, SecurityContext│
+├──────────────────────────────────────────────────────────────┤
 │  Controller Katmanı                                          │
-│  LogFileController · AnalysisController · ChatController     │
-│  StatsController · ReportController                          │
+│  AuthController · LogFileController · AnalysisController     │
+│  ChatController · StatsController · ReportController         │
 ├──────────────────────────────────────────────────────────────┤
 │  Servis Katmanı                                              │
 │  ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐  │
@@ -59,15 +63,25 @@ Klasik katmanlı mimari + AI entegrasyonunu izole eden bir servis katmanı:
 ## 2. Veritabanı Şeması
 
 ```
-log_file 1──* log_entry
-log_file 1──* analysis 1──* chat_message
-log_file 1──* error_group
+app_user 1──* log_file 1──* log_entry
+              log_file 1──* analysis 1──* chat_message
+              log_file 1──* error_group
 ```
+
+**app_user** — kayıtlı kullanıcılar (Flyway V3, Gün 9)
+| Alan | Tip | Not |
+|---|---|---|
+| id | UUID PK | |
+| username | varchar unique | |
+| password_hash | varchar | BCrypt |
+| role | varchar | ADMIN / USER |
+| created_at | timestamptz | |
 
 **log_file** — yüklenen dosya ve parse özeti
 | Alan | Tip | Not |
 |---|---|---|
 | id | UUID PK | |
+| owner_id | FK → app_user | log'un sahibi; yetkilendirme sorguları buradan filtrelenir (Gün 9, V3 migration) |
 | filename, size_bytes | varchar, bigint | |
 | uploaded_at | timestamptz | |
 | detected_format | varchar | SPRING_DEFAULT / LOG4J / SYSLOG / UNKNOWN |
@@ -126,8 +140,11 @@ log_file 1──* error_group
 
 | Method | Path | Açıklama |
 |---|---|---|
-| POST | `/api/logs` | Dosya yükle (multipart), parse et, özet dön |
-| GET | `/api/logs` | Yüklenen dosyalar (sayfalı) |
+| POST | `/api/auth/register` | Yeni kullanıcı kaydı (username + şifre) |
+| POST | `/api/auth/login` | Giriş yap, JWT token dön |
+| GET | `/api/auth/me` | Aktif kullanıcının bilgisi (username, rol) |
+| POST | `/api/logs` | Dosya yükle (multipart), parse et, özet dön — kaydedilen `log_file.owner_id` = aktif kullanıcı |
+| GET | `/api/logs` | Yüklenen dosyalar (sayfalı) — USER sadece kendi dosyalarını, ADMIN tümünü görür |
 | GET | `/api/logs/{id}` | Dosya detayı + parse istatistikleri |
 | GET | `/api/logs/{id}/entries?level=ERROR&page=0` | Parse edilmiş kayıtlar (filtreli) |
 | GET | `/api/logs/{id}/stats` | Dashboard verisi (level dağılımı, zaman serisi, top exception'lar) |
@@ -136,7 +153,9 @@ log_file 1──* error_group
 | GET | `/api/analyses/{id}` | Analiz detayı |
 | POST | `/api/analyses/{id}/chat` | Log bağlamında soru sor |
 | GET | `/api/analyses/{id}/report.pdf` | PDF rapor indir |
-| DELETE | `/api/logs/{id}` | Dosya + bağlı verileri sil |
+| DELETE | `/api/logs/{id}` | Dosya + bağlı verileri sil — yalnızca sahibi veya ADMIN silebilir |
+
+**Yetkilendirme kuralı:** `/api/auth/**` dışındaki tüm uçlar `Authorization: Bearer <jwt>` ister; token yoksa/geçersizse 401. `LogFileServiceImpl` her sorguda aktif kullanıcıyı `SecurityContext`'ten okur; ADMIN değilse tüm log sorguları `owner_id`'ye göre filtrelenir, başkasının logunu silmeye/görmeye çalışan USER 403 alır. Yetkilendirme mantığı controller'da değil **servis katmanında** uygulanır (SOLID — controller HTTP'yi, servis iş kuralını bilir).
 
 **Örnek — `POST /api/logs` yanıtı:**
 ```json
@@ -167,7 +186,7 @@ log_file 1──* error_group
 }
 ```
 
-Hatalar RFC 7807 `ProblemDetail` formatında döner. API dokümantasyonu: **springdoc-openapi** → `/swagger-ui.html` (neredeyse sıfır maliyet, teslimatlardan birini otomatik karşılar).
+Hatalar RFC 7807 `ProblemDetail` formatında döner. API dokümantasyonu: **springdoc-openapi** → `/swagger-ui.html` (neredeyse sıfır maliyet, teslimatlardan birini otomatik karşılar). **Durum:** bu madde en baştan plandaydı (Gün 10'a bağlıydı); henüz eklenmedi — Gün 10'da Docker paketlemesiyle birlikte hayata geçirilecek.
 
 ---
 
@@ -239,7 +258,41 @@ Bu tasarımın nedenleri: (a) 15 bin satır token limitine sığmaz, (b) gruplam
 
 ---
 
-## 6. 10 Günlük Takvim
+## 6. Kimlik Doğrulama ve Yetkilendirme (Gün 9'da eklenecek)
+
+**Neden eklendi:** Staj sorumlusu projeyi "daha kapsamlı" görmek istedi ve login istedi. Login'in dekoratif değil **gerçek bir amacı** olsun diye şu senaryoya bağlandı: bugün herkes herkesin logunu görüp silebiliyor; login ile her kullanıcı yalnızca kendi yüklediği logları görür/analiz eder/siler, bir **ADMIN** rolü ise tüm kullanıcıların loglarını denetleyebilir (staj sorumlusunun "herkesin ne yaptığını görme" ihtiyacına karşılık gelir). Bu aynı zamanda doğal bir audit izi de sağlar (hangi log kime ait).
+
+**Yaklaşım: JWT tabanlı stateless bearer token.** Mevcut mimari zaten tamamen `fetch`-tabanlı bir REST API + statik SPA; session/cookie yerine `Authorization: Bearer <jwt>` header'ı bu mimariye session-based login'den daha doğal oturur (CSRF derdi yok, sunucu tarafında oturum tutulmaz). Refresh-token gibi ek karmaşıklığa bu ölçekte gerek yok — tek access token, makul bir süre (ör. 24 saat) yeterli.
+
+- **Bağımlılık:** `spring-boot-starter-security` + `jjwt` (veya Spring'in kendi `JwtEncoder`/`JwtDecoder`'ı).
+- **`app_user` entity + repository:** username unique, `password_hash` (BCrypt, `PasswordEncoder` bean), `role` (ADMIN/USER enum).
+- **`AuthController`:**
+  - `POST /api/auth/register` → yeni kullanıcı oluşturur (varsayılan rol USER; ilk kullanıcı script/seed ile ADMIN yapılabilir).
+  - `POST /api/auth/login` → username+şifre doğrular, JWT üretir (claim: `sub`=username, `role`).
+  - `GET /api/auth/me` → aktif kullanıcı bilgisini döner (frontend'in "kim giriş yapmış" göstermesi için).
+- **`JwtAuthenticationFilter`:** her istekte `Authorization` header'ını okuyup token'ı doğrular, `SecurityContext`'e authentication nesnesini koyar. `/api/auth/**` ve statik dosyalar (`/`, `/css/**`, `/js/**`) filtre dışı bırakılır.
+- **Sahiplik filtresi:** `LogFile.owner_id` eklenir (Flyway V3). `LogFileServiceImpl` her sorguda (`listAll`, `getById`, `delete`, `getEntries`, `stats`) aktif kullanıcıyı okur; rol ADMIN değilse repository sorgusuna `owner_id = currentUserId` koşulu eklenir. Başka bir kullanıcının logunu silmeye/görmeye çalışan USER **403 Forbidden** alır (404 değil — kaynağın var olduğunu gizlemek bu ölçekte gereksiz karmaşıklık).
+- **Frontend:** basit bir giriş ekranı (mevcut emerald temayla tutarlı bir kart — kullanıcı adı/şifre + "Giriş Yap"/"Kayıt Ol" sekmesi). Token `localStorage`'da tutulur, tüm `fetch` çağrılarına `Authorization` header'ı eklenir; `401` yanıtı gelirse otomatik olarak login ekranına yönlendirilir. Üst başlıkta aktif kullanıcı adı + "Çıkış Yap" butonu gösterilir.
+- **Test stratejisi:** `AuthControllerTest` (kayıt/login happy-path + yanlış şifre), yetkilendirme testi (USER-A'nın USER-B'nin logunu silmeye çalışması → 403), anonim istek → 401.
+
+---
+
+## 7. Docker Paketleme — Tek Komutla Tam Kurulum (Gün 10'da eklenecek)
+
+**Neden eklendi:** Şu ana kadar `docker-compose.yml` yalnızca PostgreSQL'i içeriyordu; uygulamanın kendisi `./mvnw spring-boot:run` ile elle çalıştırılıyordu. Değerlendiren kişinin Java/Maven kurulu olmasına gerek kalmadan projeyi tek komutla ayağa kaldırabilmesi "kapsamlı"lığın somut bir göstergesi — Bölüm 9'daki 5. fikirle ("tek komutla ayağa kalkan demo") aynı doğrultuda, onu tamamlıyor.
+
+- **`Dockerfile` (çok aşamalı / multi-stage):**
+  1. **build stage:** `maven:3.9-eclipse-temurin-21` imajı ile `./mvnw package -DskipTests` çalıştırılır (bağımlılık katmanı ayrı `COPY` ile cache'lenir).
+  2. **runtime stage:** küçük bir `eclipse-temurin:21-jre-alpine` imajına yalnızca üretilen jar kopyalanır, `ENTRYPOINT ["java","-jar","app.jar"]`.
+- **`docker-compose.yml` genişletilir:** yeni bir `app` servisi eklenir — `build: .`, `depends_on: [db]`, `environment`'tan `.env` okunur (`GEMINI_API_KEY`, `SPRING_DATASOURCE_URL` vb. — db servisinin adı `db` olduğundan container-içi hostname otomatik kullanılır), `ports: ["8080:8080"]`.
+- **Sonuç:** `docker compose up --build` → hem Postgres hem uygulama ayağa kalkar, `http://localhost:8080` üzerinden erişilebilir. README bu tek komutu ön plana çıkarır; `./mvnw spring-boot:run` ile elle çalıştırma da (geliştirme için) ayrıca belgelenir.
+- **Not:** `mock` Spring profili (AI çağrısı sahte yanıtla değiştirilebilir) Docker imajında da çalışır — API anahtarı olmayan bir değerlendirici bile `SPRING_PROFILES_ACTIVE=mock docker compose up` ile projeyi AI'sız gezebilir.
+
+---
+
+## 8. Genişletilmiş Takvim
+
+> **Not:** Orijinal plan 10 gündü. Kapsam staj sorumlusunun talebiyle genişledi (Bölüm 6 — login/roller, Bölüm 7 — Docker paketleme); bu yüzden takvim **12 güne** çıkarıldı. Ayrıca plan dışı iki ek iş de tamamlandı ve raporlandı: log silme özelliği (Gün 7-8 arası) ve arayüzün baştan tasarımı (Gün 8-9 arası) — bkz. `raporlar/`.
 
 | Gün | Hedef | Gün sonu "bitti" tanımı |
 |---|---|---|
@@ -251,8 +304,10 @@ Bu tasarımın nedenleri: (a) 15 bin satır token limitine sığmaz, (b) gruplam
 | 6 | Dashboard: Chart.js ile level dağılımı (pasta), zaman serisi (ERROR/WARN dakikalık çizgi), top exception bar grafiği; entries tablosu + filtre. | Dashboard sekmesi dolu ve doğru. |
 | 7 | Log ile sohbet: chat endpoint + geçmiş + basit chat UI. Prompt v2 iyileştirmeleri (kanıt satırları, güven kalibrasyonu). | Analiz sayfasından loga soru sorulabiliyor. |
 | 8 | WARN→ERROR geçiş analizi (WARN kümelerinin ERROR'a dönüşümünü zaman ekseninde işaretle) + PDF rapor (openhtmltopdf ile HTML→PDF). | İki ekstra özellik demo edilebilir durumda. |
-| 9 | Test + sağlamlaştırma: integration testler (Testcontainers), hata senaryoları (bozuk dosya, boş dosya, AI hatası), edge-case parser düzeltmeleri, UI cilası. | Bilinen kırmızı senaryo yok. |
-| 10 | Teslimat: README (kurulum: `docker compose up` + `./mvnw spring-boot:run`), örnek log dosyaları (3-4 senaryo), örnek analiz çıktıları, Swagger kontrolü, demo provası. **Tampon gün.** | Repo teslim edilebilir durumda. |
+| 9 | **(Yeni kapsam)** Kimlik doğrulama ve yetkilendirme: `app_user` + Flyway V3, JWT login/register, `JwtAuthenticationFilter`, log sahipliği filtresi (USER kendi loglarını görür, ADMIN tümünü), basit giriş ekranı. Bkz. Bölüm 6. | Kayıt olup giriş yapılabiliyor; USER başka kullanıcının logunu göremiyor/silemiyor, ADMIN her şeyi görüyor. |
+| 10 | **(Yeni kapsam)** Docker paketleme: çok aşamalı `Dockerfile`, `docker-compose.yml`'e `app` servisi eklenir. + `springdoc-openapi` ile Swagger UI (zaten plandaydı, burada hayata geçirilir). Bkz. Bölüm 7. | `docker compose up --build` tek komutla hem DB hem uygulamayı ayağa kaldırıyor; `/swagger-ui.html` çalışıyor. |
+| 11 | Test + sağlamlaştırma: integration testler (Testcontainers), hata senaryoları (bozuk dosya, boş dosya, AI hatası), edge-case parser düzeltmeleri, auth testleri (401/403), UI cilası. | Bilinen kırmızı senaryo yok. |
+| 12 | Teslimat: README (kurulum: `docker compose up --build`, alternatif olarak `./mvnw spring-boot:run`), örnek log dosyaları (3-4 senaryo), örnek analiz çıktıları, Swagger kontrolü, demo provası. **Tampon gün.** | Repo teslim edilebilir durumda. |
 
 **Kayma durumunda kesme sırası (önce kesilecek):**
 1. **PDF rapor** — etkileyicilik/maliyet oranı en düşük ("yazdır" ile PDF zaten alınabilir).
@@ -260,11 +315,11 @@ Bu tasarımın nedenleri: (a) 15 bin satır token limitine sığmaz, (b) gruplam
 3. **Chat** — en son gözden çıkar; jüri/sorumlu üzerinde etkisi büyük.
 4. Dashboard'dan **asla** tamamen vazgeçme; en kötü tek grafiğe indir.
 
-MVP **5. gün** hazır → kalan 5 gün ekstra özellik + kalite. Bu, "sona her şeyi yığma" riskini ortadan kaldırır.
+MVP **5. gün** hazır → kalan gün ekstra özellik + kalite. Bu, "sona her şeyi yığma" riskini ortadan kaldırır. (Not: takvim sonradan 12 güne çıktı — bkz. Bölüm 8 başındaki not; MVP kuralı hâlâ geçerli, sadece "kalan gün" sayısı arttı.)
 
 ---
 
-## 7. Riskler ve Önlemler
+## 9. Riskler ve Önlemler
 
 | Risk | Etki | Önlem |
 |---|---|---|
@@ -273,12 +328,14 @@ MVP **5. gün** hazır → kalan 5 gün ekstra özellik + kalite. Bu, "sona her 
 | Büyük dosya / token limiti | Analiz patlar veya pahalanır | 10 MB dosya limiti; damıtma katmanı zaten token'ı sınırlar; prompt'a giden içeriği ~15K token ile kırp. |
 | Structured output bozuk JSON dönmesi | Analiz kaydedilemez | temperature 0.2, retry, ham yanıtı `raw_response`a kaydet, kullanıcıya "tekrar dene" sun. |
 | Senkron analizde HTTP timeout | Kötü UX | Frontend'te yükleniyor durumu + timeout'u 60 sn'ye çek; süre kalırsa async status polling. |
-| Zaman kayması | Teslim riski | MVP gün 5 kuralı; her ekstra özellik bağımsız modül → yarım kalan özellik MVP'yi bozmaz; gün 10 tampon. |
+| Zaman kayması | Teslim riski | MVP gün 5 kuralı; her ekstra özellik bağımsız modül → yarım kalan özellik MVP'yi bozmaz; gün 12 tampon. |
 | PostgreSQL kurulum sorunları (değerlendiren kişide) | Demo yapılamaz | Docker Compose tek komut kurulum + README'de adım adım anlatım. |
+| Auth kapsamı büyüyüp asıl işi (log analizi) gölgeler | Sunumda odak kayar | JWT + tek rol çifti (ADMIN/USER) ile sınırla; refresh token, e-posta doğrulama, şifre sıfırlama gibi genişlemelere **girme** — bunlar login'in "amacını" (log sahipliği) değiştirmez, sadece süre yer. |
+| Docker imajı büyük/yavaş build olur | Demo sırasında bekleme | `eclipse-temurin:21-jre-alpine` gibi küçük bir runtime imajı + multi-stage build ile katman cache'i; ilk build'in süre aldığı README'de belirtilir. |
 
 ---
 
-## 8. Test Stratejisi (süre kısıtına göre önceliklendirilmiş)
+## 10. Test Stratejisi (süre kısıtına göre önceliklendirilmiş)
 
 Kısıtlı sürede test bütçesini **deterministik ve kırılgan** olan yere harca:
 
@@ -287,24 +344,28 @@ Kısıtlı sürede test bütçesini **deterministik ve kırılgan** olan yere ha
 3. **AI servis testi (mock ile):** `ChatClient`'ı mock'la; (a) damıtılmış prompt doğru kurgulanıyor mu, (b) örnek JSON yanıt `AnalysisResult`'a doğru bağlanıyor mu, (c) bozuk JSON'da hata akışı çalışıyor mu. **Gerçek AI çağrısını asla otomatik teste koyma** — deterministik değil, yavaş ve kota yer.
 4. **1-2 integration test (Testcontainers + MockMvc):** upload → parse → (mock) analyze → GET happy path. JSONB kullanıldığı için H2 yerine Testcontainers şart.
 5. Controller validasyonları (yanlış uzantı, boyut aşımı) için birkaç ince test.
+6. **(Yeni — auth) Yetkilendirme testleri:** kayıt/login happy-path + yanlış şifre; anonim istek → 401; USER-A'nın USER-B'nin logunu silmeye/görmeye çalışması → 403; ADMIN'in tüm logları görebilmesi.
 
 ---
 
-## 9. Katma Değer: Projeyi Sıradanlıktan Çıkaracak 5 Somut Fikir
+## 11. Katma Değer: Projeyi Sıradanlıktan Çıkaracak Somut Fikirler
 
 1. **Log damıtma pipeline'ı (parse → grupla → örnekle → gönder).** "Dosyayı AI'a yapıştıran" naif çözüm yerine token bütçesi yöneten bilinçli bir ön işleme katmanı. Hem maliyet mühendisliği hem analiz kalitesi demektir; sunumda "15.000 satırı 200 satırlık kanıta indiriyorum" cümlesi tek başına fark yaratır.
 2. **Kanıta dayalı analiz (evidence lines).** AI yanıtı, dayandığı orijinal satır numaralarını içerir; UI'da tıklanınca ilgili log satırları vurgulanır. LLM hallucination problemine mühendisçe bir cevap — sorumlunun "AI'ın dediğine neden güveneyim?" sorusunu ürün özelliğine dönüştürür.
 3. **Hata parmak izi ile Sentry-vari gruplama.** Değişken kısımları (ID, sayı) maskeleyip hash'leyerek "aynı hata 300 kez" tespiti. AI olmadan da değer üreten deterministik bir çekirdek; sistemin tamamının "AI sosu" olmadığını gösterir.
 4. **Prompt versiyonlama + token/maliyet ve süre takibi.** Her analizde `prompt_version`, token sayıları ve süre DB'ye yazılır; README'de "prompt v1 → v2 şu yüzden değişti" kısa notu. LLM tabanlı ürünlerde olgunluk (LLMOps) sinyali — stajyerden beklenmeyen bir detay.
-5. **Tek komutla ayağa kalkan demo:** Docker Compose + Flyway + `mock` AI profili + seed örnek loglar + Swagger UI. Değerlendiren kişi API anahtarı olmadan bile `docker compose up` ile ürünü gezebilir. "Çalıştıramadım" riskini sıfırlar; DX'e verilen önem iyi mühendislik izlenimi bırakır.
+5. **Tek komutla ayağa kalkan demo:** Docker Compose (artık uygulamanın kendisi de dahil — bkz. Bölüm 7) + Flyway + `mock` AI profili + seed örnek loglar + Swagger UI. Değerlendiren kişi Java/Maven kurmadan, API anahtarı olmadan bile `docker compose up --build` ile ürünü gezebilir. "Çalıştıramadım" riskini sıfırlar; DX'e verilen önem iyi mühendislik izlenimi bırakır.
+6. **Çoklu kullanıcı + rol bazlı erişim (Bölüm 6).** Login'in kendisi değil, **log sahipliği** kavramı değer üretir: her geliştirici kendi loglarını görür, ADMIN hepsini denetleyebilir. Bu, projeyi "tek kişilik demo scripti"nden "gerçek bir ekip aracı" izlenimine taşır.
 
 ---
 
-## Teslimat Kontrol Listesi (Gün 10)
+## Teslimat Kontrol Listesi (Gün 12)
 
 - [ ] Kaynak kod — anlamlı commit geçmişiyle (gün gün commit at, son gün tek commit değil!)
-- [ ] README: mimari özeti + kurulum (`docker compose up` → `./mvnw spring-boot:run`) + ekran görüntüleri
-- [ ] API dokümantasyonu: Swagger UI (`/swagger-ui.html`) + README'de endpoint tablosu
+- [ ] README: mimari özeti + kurulum (`docker compose up --build`, alternatif `./mvnw spring-boot:run`) + ekran görüntüleri (login ekranı dahil)
+- [ ] API dokümantasyonu: Swagger UI (`/swagger-ui.html`) + README'de endpoint tablosu (auth uçları dahil)
 - [ ] `samples/` altında 3-4 senaryolu örnek log dosyası (DB bağlantı fırtınası, NPE, OOM, karışık)
 - [ ] `samples/outputs/` altında örnek analiz JSON çıktıları
-- [ ] `.env.example` — API anahtarı yapılandırması
+- [ ] `.env.example` — API anahtarı + JWT secret yapılandırması
+- [ ] Login/kayıt akışı + rol bazlı erişim (403/401 senaryoları) manuel test edildi
+- [ ] `Dockerfile` + genişletilmiş `docker-compose.yml` tek komutla çalışıyor (temiz bir makinede denendi)
