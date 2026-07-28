@@ -11,6 +11,7 @@ import com.ailoganalyzer.domain.LogFormat;
 import com.ailoganalyzer.domain.Priority;
 import com.ailoganalyzer.dto.AnalysisResponse;
 import com.ailoganalyzer.dto.StatsResponse;
+import com.ailoganalyzer.exception.AiAnalysisException;
 import com.ailoganalyzer.repository.AnalysisRepository;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
 import com.ailoganalyzer.repository.LogFileRepository;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +29,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -98,5 +103,44 @@ class AnalysisServiceImplTest {
         // Yan etkiler doğrulandı: kayıt yapıldı ve dosya durumu güncellendi
         verify(analysisRepository).save(any(Analysis.class));
         assertThat(file.getStatus()).isEqualTo(LogFileStatus.ANALYZED);
+        verify(accessControl).requireAccess(file);   // sahiplik denetimi çağrıldı
+    }
+
+    @Test
+    @DisplayName("Başka kullanıcının dosyasında analiz denemesi: requireAccess 403 fırlatır, AI hiç çağrılmaz")
+    void analyzeDeniedAccessNeverCallsAi() {
+        UUID fileId = UUID.randomUUID();
+        LogFile file = new LogFile();
+        file.setId(fileId);
+
+        when(logFileRepository.findById(fileId)).thenReturn(Optional.of(file));
+        doThrow(new AccessDeniedException("yetkisiz")).when(accessControl).requireAccess(file);
+
+        assertThatThrownBy(() -> service.analyze(fileId)).isInstanceOf(AccessDeniedException.class);
+        verify(aiClient, never()).analyze(any());
+        verify(analysisRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("AI çağrısı başarısız olursa (bozuk yanıt/API hatası): hiçbir Analysis kaydedilmez, dosya durumu değişmez")
+    void aiFailureLeavesNoPartialState() {
+        UUID fileId = UUID.randomUUID();
+        LogFile file = new LogFile();
+        file.setId(fileId);
+        file.setFilename("app.log");
+        file.setStatus(LogFileStatus.PARSED);
+
+        when(logFileRepository.findById(fileId)).thenReturn(Optional.of(file));
+        when(statsService.computeStats(fileId)).thenReturn(new StatsResponse(
+                fileId, null, 0, Map.of(), List.of(), List.of(), List.of(), null, null, null));
+        when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(fileId)).thenReturn(List.of());
+        when(aiClient.analyze(any())).thenThrow(
+                new AiAnalysisException("Yapay zeka analizi başarısız: bozuk JSON yanıtı", new RuntimeException()));
+
+        assertThatThrownBy(() -> service.analyze(fileId)).isInstanceOf(AiAnalysisException.class);
+
+        // Yarım kalmış bir yazma YOK: ne Analysis kaydedildi ne dosya durumu ANALYZED'e geçti
+        verify(analysisRepository, never()).save(any());
+        assertThat(file.getStatus()).isEqualTo(LogFileStatus.PARSED);
     }
 }

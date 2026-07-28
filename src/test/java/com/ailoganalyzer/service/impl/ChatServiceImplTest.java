@@ -12,22 +12,27 @@ import com.ailoganalyzer.repository.AnalysisRepository;
 import com.ailoganalyzer.repository.ChatMessageRepository;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
 import com.ailoganalyzer.repository.LogEntryRepository;
+import com.ailoganalyzer.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -79,6 +84,38 @@ class ChatServiceImplTest {
         // İki kayıt: önce kullanıcı sorusu, sonra asistan yanıtı
         verify(chatMessageRepository, times(2)).save(any(ChatMessage.class));
         verify(chatAiClient).chat(anyString(), anyList(), eq("DB hatası neden?"));
+        verify(accessControl).requireAccess(file);   // sahiplik denetimi çağrıldı
+    }
+
+    @Test
+    @DisplayName("Bulunamayan analiz → ResourceNotFoundException, AI hiç çağrılmaz")
+    void askNotFound() {
+        ChatServiceImpl service = new ChatServiceImpl(
+                analysisRepository, chatMessageRepository, errorGroupRepository, logEntryRepository, chatAiClient, accessControl);
+        UUID analysisId = UUID.randomUUID();
+        when(analysisRepository.findById(analysisId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.ask(analysisId, "soru")).isInstanceOf(ResourceNotFoundException.class);
+        verify(chatAiClient, never()).chat(anyString(), anyList(), anyString());
+    }
+
+    @Test
+    @DisplayName("Başka kullanıcının analizine sohbet denemesi → 403, mesaj kaydedilmez, AI çağrılmaz")
+    void askDeniedAccessNeverCallsAi() {
+        ChatServiceImpl service = new ChatServiceImpl(
+                analysisRepository, chatMessageRepository, errorGroupRepository, logEntryRepository, chatAiClient, accessControl);
+        UUID analysisId = UUID.randomUUID();
+        LogFile file = new LogFile();
+        file.setId(UUID.randomUUID());
+        Analysis analysis = new Analysis();
+        analysis.setId(analysisId);
+        analysis.setFile(file);
+        when(analysisRepository.findById(analysisId)).thenReturn(Optional.of(analysis));
+        doThrow(new AccessDeniedException("yetkisiz")).when(accessControl).requireAccess(file);
+
+        assertThatThrownBy(() -> service.ask(analysisId, "soru")).isInstanceOf(AccessDeniedException.class);
+        verify(chatMessageRepository, never()).save(any());
+        verify(chatAiClient, never()).chat(anyString(), anyList(), anyString());
     }
 
     @Test
@@ -146,5 +183,34 @@ class ChatServiceImplTest {
         String systemPrompt = systemPromptCaptor.getValue();
         assertThat(systemPrompt).contains("satır 42", "pool-1-thread-3", "Bağlantı havuzu tükendi",
                 "SQLTransientConnectionException");
+    }
+
+    @Test
+    @DisplayName("history(): bulunamayan analiz → ResourceNotFoundException")
+    void historyNotFound() {
+        ChatServiceImpl service = new ChatServiceImpl(
+                analysisRepository, chatMessageRepository, errorGroupRepository, logEntryRepository, chatAiClient, accessControl);
+        UUID analysisId = UUID.randomUUID();
+        when(analysisRepository.findById(analysisId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.history(analysisId)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("history(): başka kullanıcının analizine erişim → 403")
+    void historyDeniedAccess() {
+        ChatServiceImpl service = new ChatServiceImpl(
+                analysisRepository, chatMessageRepository, errorGroupRepository, logEntryRepository, chatAiClient, accessControl);
+        UUID analysisId = UUID.randomUUID();
+        LogFile file = new LogFile();
+        file.setId(UUID.randomUUID());
+        Analysis analysis = new Analysis();
+        analysis.setId(analysisId);
+        analysis.setFile(file);
+        when(analysisRepository.findById(analysisId)).thenReturn(Optional.of(analysis));
+        doThrow(new AccessDeniedException("yetkisiz")).when(accessControl).requireAccess(file);
+
+        assertThatThrownBy(() -> service.history(analysisId)).isInstanceOf(AccessDeniedException.class);
+        verify(chatMessageRepository, never()).findByAnalysisIdOrderByCreatedAtAsc(any());
     }
 }
