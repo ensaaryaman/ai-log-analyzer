@@ -373,10 +373,14 @@ function renderGroups(stats) {
             <div class="eg-item">
                 <div class="eg-head" data-eg="${i}">
                     <span class="eg-type">${esc(g.exceptionType || 'istisna yok')}</span>
+                    ${g.knowledgeHint ? '<span class="eg-known">Bilinen hata</span>' : ''}
                     <span class="eg-count">×${g.occurrenceCount}</span>
                     <span class="eg-chevron">&#9660;</span>
                 </div>
-                <div class="eg-msg hidden">${esc(g.sampleMessage || '')}${g.sampleLineNumber ? ` <em>(satır ${g.sampleLineNumber})</em>` : ''}</div>
+                <div class="eg-msg hidden">
+                    <div>${esc(g.sampleMessage || '')}${g.sampleLineNumber ? ` <em>(satır ${g.sampleLineNumber})</em>` : ''}</div>
+                    ${knowledgeHintHtml(g.knowledgeHint)}
+                </div>
             </div>`).join('')}
         </div>`;
     box.querySelectorAll('.eg-head').forEach(head =>
@@ -385,6 +389,20 @@ function renderGroups(stats) {
             const open = msg.classList.toggle('hidden');
             head.querySelector('.eg-chevron').innerHTML = open ? '&#9660;' : '&#9650;';
         }));
+}
+
+// Hata bilgi bankası: bu hata geçmişte başka bir dosyada görüldüyse bir bilgi kartı çizer.
+// AI olmadan, yalnızca fingerprint eşleşmesiyle hesaplanır (bkz. StatsServiceImpl.buildKnowledgeHint).
+function knowledgeHintHtml(hint) {
+    if (!hint) return '';
+    const extra = hint.pastFileCount > 1 ? ` (toplam ${hint.pastFileCount} farklı dosyada görülmüş)` : '';
+    const solutionPart = hint.pastSolution
+        ? `<div class="kh-solution"><strong>O zamanki çözüm:</strong> ${mdLite(hint.pastSolution)}</div>`
+        : '<div class="kh-solution muted">O dosya için henüz bir yapay zeka analizi yapılmamış.</div>';
+    return `<div class="knowledge-hint">
+        <div class="kh-title">Bu hatayı daha önce <strong>${esc(hint.sourceFilename)}</strong> dosyasında görmüştünüz${extra} — ${formatDate(hint.lastSeenBefore)}</div>
+        ${solutionPart}
+    </div>`;
 }
 
 /* ---------------- Dashboard grafikleri (Chart.js) ---------------- */

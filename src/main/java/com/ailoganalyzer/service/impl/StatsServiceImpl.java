@@ -1,5 +1,6 @@
 package com.ailoganalyzer.service.impl;
 
+import com.ailoganalyzer.domain.Analysis;
 import com.ailoganalyzer.domain.ErrorGroup;
 import com.ailoganalyzer.domain.LogEntry;
 import com.ailoganalyzer.domain.LogFile;
@@ -10,6 +11,7 @@ import com.ailoganalyzer.dto.StatsResponse;
 import com.ailoganalyzer.dto.TimeBucket;
 import com.ailoganalyzer.dto.WarnToErrorTransition;
 import com.ailoganalyzer.exception.ResourceNotFoundException;
+import com.ailoganalyzer.repository.AnalysisRepository;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
 import com.ailoganalyzer.repository.LogEntryRepository;
 import com.ailoganalyzer.repository.LogFileRepository;
@@ -38,15 +40,18 @@ public class StatsServiceImpl implements StatsService {
     private final LogFileRepository logFileRepository;
     private final LogEntryRepository logEntryRepository;
     private final ErrorGroupRepository errorGroupRepository;
+    private final AnalysisRepository analysisRepository;   // Hata bilgi bankası: geçmiş analizden kök neden/çözüm çekmek için
     private final AccessControlService accessControl;   // Sahiplik (yetkilendirme) kontrolü
 
     public StatsServiceImpl(LogFileRepository logFileRepository,
                             LogEntryRepository logEntryRepository,
                             ErrorGroupRepository errorGroupRepository,
+                            AnalysisRepository analysisRepository,
                             AccessControlService accessControl) {
         this.logFileRepository = logFileRepository;
         this.logEntryRepository = logEntryRepository;
         this.errorGroupRepository = errorGroupRepository;
+        this.analysisRepository = analysisRepository;
         this.accessControl = accessControl;
     }
 
@@ -64,7 +69,7 @@ public class StatsServiceImpl implements StatsService {
         List<ErrorGroup> groups = errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(fileId);
         List<ErrorGroupResponse> groupDtos = groups.stream()
                 .limit(50)                                  // Yanıtı makul tut: en önemli 50 grup
-                .map(ErrorGroupResponse::from)
+                .map(g -> ErrorGroupResponse.from(g, buildKnowledgeHint(g)))
                 .toList();
 
         List<ExceptionStat> topExceptions = topExceptions(groups);
@@ -82,6 +87,34 @@ public class StatsServiceImpl implements StatsService {
                 transition,
                 file.getFirstTs(),
                 file.getLastTs()
+        );
+    }
+
+    // Hata bilgi bankası: bu hata grubunun (fingerprint) geçmişte BAŞKA bir dosyada görülüp
+    // görülmediğini arar (sahiplik sınırına saygılı: USER kendi geçmişinde, ADMIN her yerde arar).
+    // Eşleşme yoksa null döner — çağıran taraf bunu "yeni hata, geçmişi yok" olarak yorumlar.
+    private ErrorGroupResponse.KnowledgeHint buildKnowledgeHint(ErrorGroup group) {
+        UUID currentFileId = group.getFile().getId();
+        List<ErrorGroup> past = accessControl.isAdmin()
+                ? errorGroupRepository.findPastOccurrencesAnyOwner(group.getFingerprint(), currentFileId)
+                : errorGroupRepository.findPastOccurrencesByOwner(
+                        group.getFingerprint(), currentFileId, accessControl.currentUserId());
+        if (past.isEmpty()) {
+            return null;
+        }
+
+        ErrorGroup mostRecent = past.get(0);   // Sorgu zaten lastSeen'e göre azalan sıralı
+        LogFile sourceFile = mostRecent.getFile();
+        // O geçmiş dosya için bir AI analizi yapılmışsa (en yenisi), kök neden/çözümünü de göster
+        Analysis pastAnalysis = analysisRepository.findByFileIdOrderByCreatedAtDesc(sourceFile.getId())
+                .stream().findFirst().orElse(null);
+
+        return new ErrorGroupResponse.KnowledgeHint(
+                sourceFile.getFilename(),
+                past.size(),
+                mostRecent.getLastSeen(),
+                pastAnalysis == null ? null : pastAnalysis.getRootCause(),
+                pastAnalysis == null ? null : pastAnalysis.getSolution()
         );
     }
 

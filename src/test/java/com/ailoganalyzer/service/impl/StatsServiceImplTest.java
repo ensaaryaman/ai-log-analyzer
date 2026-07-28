@@ -1,11 +1,15 @@
 package com.ailoganalyzer.service.impl;
 
+import com.ailoganalyzer.domain.Analysis;
+import com.ailoganalyzer.domain.ErrorGroup;
 import com.ailoganalyzer.domain.LogEntry;
 import com.ailoganalyzer.domain.LogFile;
 import com.ailoganalyzer.domain.LogLevel;
+import com.ailoganalyzer.dto.ErrorGroupResponse;
 import com.ailoganalyzer.dto.StatsResponse;
 import com.ailoganalyzer.dto.WarnToErrorTransition;
 import com.ailoganalyzer.exception.ResourceNotFoundException;
+import com.ailoganalyzer.repository.AnalysisRepository;
 import com.ailoganalyzer.repository.ErrorGroupRepository;
 import com.ailoganalyzer.repository.LogEntryRepository;
 import com.ailoganalyzer.repository.LogFileRepository;
@@ -45,19 +49,31 @@ class StatsServiceImplTest {
     @Mock private LogFileRepository logFileRepository;
     @Mock private LogEntryRepository logEntryRepository;
     @Mock private ErrorGroupRepository errorGroupRepository;
+    @Mock private AnalysisRepository analysisRepository;
     @Mock private AccessControlService accessControl;
 
     private StatsServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new StatsServiceImpl(logFileRepository, logEntryRepository, errorGroupRepository, accessControl);
+        service = new StatsServiceImpl(
+                logFileRepository, logEntryRepository, errorGroupRepository, analysisRepository, accessControl);
     }
 
     private LogFile fileWithId(UUID id) {
         LogFile file = new LogFile();
         file.setId(id);
         return file;
+    }
+
+    private ErrorGroup groupIn(LogFile file, String fingerprint) {
+        ErrorGroup g = new ErrorGroup();
+        g.setFile(file);
+        g.setFingerprint(fingerprint);
+        g.setExceptionType("NullPointerException");
+        g.setOccurrenceCount(1);
+        g.setLastSeen(OffsetDateTime.parse("2026-01-01T10:00:00Z"));
+        return g;
     }
 
     private LogEntry entryAt(LogLevel level, String isoTs) {
@@ -158,5 +174,84 @@ class StatsServiceImplTest {
 
         assertThat(stats.levelDistribution().keySet()).containsExactly("INFO", "WARN", "ERROR");
         assertThat(stats.totalEntries()).isEqualTo(18L);
+    }
+
+    // --- Hata bilgi bankası (knowledgeHint) ---
+
+    @Test
+    @DisplayName("USER: aynı hata kendi geçmiş dosyasında görülmüşse knowledgeHint dosya adı + geçmiş çözümle dolar")
+    void knowledgeHintFilledWhenUserHasSeenSameErrorBefore() {
+        UUID id = UUID.randomUUID();
+        LogFile currentFile = fileWithId(id);
+        ErrorGroup currentGroup = groupIn(currentFile, "abc123");
+
+        LogFile pastFile = fileWithId(UUID.randomUUID());
+        pastFile.setFilename("gecen-hafta.log");
+        ErrorGroup pastGroup = groupIn(pastFile, "abc123");
+        pastGroup.setLastSeen(OffsetDateTime.parse("2025-12-20T09:00:00Z"));
+
+        Analysis pastAnalysis = new Analysis();
+        pastAnalysis.setRootCause("Havuz kapasitesi yetersizdi");
+        pastAnalysis.setSolution("Havuz boyutu artırıldı");
+
+        UUID meId = UUID.randomUUID();
+        when(logFileRepository.findById(id)).thenReturn(Optional.of(currentFile));
+        when(logEntryRepository.countByLevel(id)).thenReturn(List.of());
+        when(logEntryRepository.findByFileAndLevels(eq(id), any())).thenReturn(List.of());
+        when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(id)).thenReturn(List.of(currentGroup));
+        when(accessControl.isAdmin()).thenReturn(false);
+        when(accessControl.currentUserId()).thenReturn(meId);
+        when(errorGroupRepository.findPastOccurrencesByOwner("abc123", id, meId)).thenReturn(List.of(pastGroup));
+        when(analysisRepository.findByFileIdOrderByCreatedAtDesc(pastFile.getId())).thenReturn(List.of(pastAnalysis));
+
+        StatsResponse stats = service.computeStats(id);
+
+        ErrorGroupResponse.KnowledgeHint hint = stats.errorGroups().get(0).knowledgeHint();
+        assertThat(hint).isNotNull();
+        assertThat(hint.sourceFilename()).isEqualTo("gecen-hafta.log");
+        assertThat(hint.pastFileCount()).isEqualTo(1);
+        assertThat(hint.pastRootCause()).isEqualTo("Havuz kapasitesi yetersizdi");
+        assertThat(hint.pastSolution()).isEqualTo("Havuz boyutu artırıldı");
+    }
+
+    @Test
+    @DisplayName("Geçmişte eşleşme yoksa knowledgeHint null döner")
+    void knowledgeHintNullWhenNoPastMatch() {
+        UUID id = UUID.randomUUID();
+        LogFile currentFile = fileWithId(id);
+        ErrorGroup currentGroup = groupIn(currentFile, "yeni-hata");
+
+        when(logFileRepository.findById(id)).thenReturn(Optional.of(currentFile));
+        when(logEntryRepository.countByLevel(id)).thenReturn(List.of());
+        when(logEntryRepository.findByFileAndLevels(eq(id), any())).thenReturn(List.of());
+        when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(id)).thenReturn(List.of(currentGroup));
+        when(accessControl.isAdmin()).thenReturn(false);
+        when(accessControl.currentUserId()).thenReturn(UUID.randomUUID());
+        when(errorGroupRepository.findPastOccurrencesByOwner(eq("yeni-hata"), eq(id), any())).thenReturn(List.of());
+
+        StatsResponse stats = service.computeStats(id);
+
+        assertThat(stats.errorGroups().get(0).knowledgeHint()).isNull();
+        verify(analysisRepository, never()).findByFileIdOrderByCreatedAtDesc(any());
+    }
+
+    @Test
+    @DisplayName("ADMIN: geçmiş arama sahiplikten bağımsız (tüm kullanıcılar) yapılır")
+    void adminSearchesPastOccurrencesAcrossAllOwners() {
+        UUID id = UUID.randomUUID();
+        LogFile currentFile = fileWithId(id);
+        ErrorGroup currentGroup = groupIn(currentFile, "abc123");
+
+        when(logFileRepository.findById(id)).thenReturn(Optional.of(currentFile));
+        when(logEntryRepository.countByLevel(id)).thenReturn(List.of());
+        when(logEntryRepository.findByFileAndLevels(eq(id), any())).thenReturn(List.of());
+        when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(id)).thenReturn(List.of(currentGroup));
+        when(accessControl.isAdmin()).thenReturn(true);
+        when(errorGroupRepository.findPastOccurrencesAnyOwner("abc123", id)).thenReturn(List.of());
+
+        service.computeStats(id);
+
+        verify(errorGroupRepository).findPastOccurrencesAnyOwner("abc123", id);
+        verify(errorGroupRepository, never()).findPastOccurrencesByOwner(any(), any(), any());
     }
 }
