@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### macOS ###
+.DS_Store
+
 ### AI Log Analyzer'a özel ###
 # NOT: .gitignore satır-içi (#) yorum desteklemez; açıklamalar desenin ÜSTÜNE ayrı satıra yazılır.
 
