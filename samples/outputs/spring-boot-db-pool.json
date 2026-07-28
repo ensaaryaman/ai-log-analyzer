@@ -1,0 +1,19 @@
+{
+  "id": "a737d7ae-5228-4239-8ab7-ee4ab1b4c923",
+  "fileId": "3d3349cf-ea84-4286-b5ab-a044a7b9a24d",
+  "model": "gemini-flash-latest",
+  "promptVersion": "v1",
+  "summary": "Spring Boot uygulamasındaki HikariCP veritabanı bağlantı havuzu, 30 saniyelik zaman aşımı süresi içinde veritabanına bağlanamadığı için sipariş oluşturma işlemlerinde hatalar meydana gelmektedir.",
+  "rootCause": "HikariCP bağlantı havuzunun veritabanına yeni bağlantı açmaya çalışırken 'java.net.SocketTimeoutException: connect timed out' alması. Bu durum veritabanı sunucusunun erişilemez olduğunu, kapalı olduğunu veya ağ/firewall (güvenlik duvarı) engeline takıldığını göstermektedir.",
+  "solution": "1. Veritabanı sunucusunun aktif ve istekleri kabul eder durumda olduğunu doğrulayın.\n2. Uygulama sunucusu ile veritabanı arasındaki ağ bağlantısını (firewall kuralları, güvenlik grupları, IP/port erişilebilirliği) kontrol edin.\n3. Uygulamanın 'application.properties' veya 'application.yml' dosyasındaki veritabanı URL, port ve sürücü ayarlarını doğrulayın.\n4. Gerekirse HikariCP 'connectionTimeout' ve havuz boyutu parametrelerini gözden geçirin.",
+  "priority": "HIGH",
+  "confidence": 0.95,
+  "evidenceLines": [
+    2,
+    3
+  ],
+  "promptTokens": 1146,
+  "completionTokens": 301,
+  "durationMs": 5099,
+  "createdAt": "2026-07-28T09:56:12.457423Z"
+}

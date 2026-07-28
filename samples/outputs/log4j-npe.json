@@ -1,0 +1,18 @@
+{
+  "id": "0fe1ea3a-870f-483d-84f4-1c8e70f8378f",
+  "fileId": "edc67233-be5d-4d5e-8775-0aec2743dbe9",
+  "model": "gemini-flash-latest",
+  "promptVersion": "v1",
+  "summary": "UserController.show çağrısı sırasında kullanıcı bilgisi formatlanırken null olan bir user nesnesi üzerinden getName() metodu çağrıldığı için NullPointerException hatası alınmıştır.",
+  "rootCause": "UserService.java:88 satırında 'user' nesnesinin null kalabileceği senaryo değerlendirilmemiş ve null kontrolü yapılmadan doğrudan 'user.getName()' metodu çağrılmıştır.",
+  "solution": "1. UserService.java:88 satırında 'user' nesnesi için null kontrolü (null check) ekleyin veya 'Optional<User>' yapısını kullanın.\n2. Kullanıcı bulunamadığı durumda NullPointerException fırlatmak yerine uygun bir varsayılan değer dönün veya özel bir istisna (örn. UserNotFoundException) fırlatarak HTTP 404 yanıtı verin.",
+  "priority": "HIGH",
+  "confidence": 0.95,
+  "evidenceLines": [
+    3
+  ],
+  "promptTokens": 1037,
+  "completionTokens": 219,
+  "durationMs": 8248,
+  "createdAt": "2026-07-28T09:55:52.648526Z"
+}

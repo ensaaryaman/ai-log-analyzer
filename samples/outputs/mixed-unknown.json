@@ -1,0 +1,19 @@
+{
+  "id": "fd7f035a-bfbb-43dd-bac1-8882f5078e6c",
+  "fileId": "ada04959-3cba-45c9-8987-3c59dfabf28f",
+  "model": "gemini-flash-latest",
+  "promptVersion": "v1",
+  "summary": "Sistemde /var dizinindeki disk kullanımının eşik değeri aşmasıyla birlikte veritabanı bağlantısında yeniden deneme (retry) uyarıları meydana gelmektedir.",
+  "rootCause": "/var dizinindeki disk alanının dolması nedeniyle veritabanının veya uygulamanın geçici dosyaları/logları yazamaması ve buna bağlı olarak veritabanı bağlantı veya çalışma sorunlarının yaşanmasıdır.",
+  "solution": "1. `/var` dizininde en çok yer kaplayan dosya ve klasörleri tespit edin (`du -sh /var/*`) ve gereksiz/eski log ve geçici dosyaları temizleyin.\n2. Logrotate mekanizmasını kontrol ederek otomatik log temizliğinin çalıştığından emin olun.\n3. Veritabanı servisinin durumunu ve disk doluluğundan etkilenip etkilenmediğini kontrol edin, gerekiyorsa servisi yeniden başlatın.\n4. İhtiyaç halinde `/var` bölümünün disk kapasitesini artırın.",
+  "priority": "HIGH",
+  "confidence": 0.85,
+  "evidenceLines": [
+    3,
+    5
+  ],
+  "promptTokens": 816,
+  "completionTokens": 264,
+  "durationMs": 7208,
+  "createdAt": "2026-07-28T09:56:07.215774Z"
+}

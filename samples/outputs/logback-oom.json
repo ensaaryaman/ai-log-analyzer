@@ -1,0 +1,18 @@
+{
+  "id": "7ea6feab-9709-4359-bf5a-a8967f94ec92",
+  "fileId": "614c0373-0688-4465-aa62-b540ca3496f4",
+  "model": "gemini-flash-latest",
+  "promptVersion": "v1",
+  "summary": "Toplu işlem yürütülürken tüm verinin tek seferde belleğe yüklenmeye çalışılması sonucu uygulamanın Java heap belleği tükenmiş ve OutOfMemoryError hatasıyla toplu işlem çökmüştür.",
+  "rootCause": "com.example.batch.JobRunner.loadAll metodu (JobRunner.java:71) verileri parçalı işlemek yerine tek bir ArrayList içerisinde tutmaya çalışmış, dinamik dizi büyütme (ArrayList.grow) sırasında JVM heap bellek limitini aşarak java.lang.OutOfMemoryError hatasına sebep olmuştur.",
+  "solution": "1. JobRunner.loadAll metodundaki tüm veriyi tek seferde belleğe çekme mantığı değiştirilmeli; pagination (sayfalama), streaming (akış) veya chunk-based (parçalı) veri işleme modeline geçilmelidir.\n2. Geçici bir önlem olarak uygulamanın JVM heap boyutu (-Xmx parametresi) artırılabilir.\n3. OOM durumlarını detaylı analiz edebilmek için JVM'e -XX:+HeapDumpOnOutOfMemoryError ve -XX:HeapDumpPath parametreleri eklenmelidir.",
+  "priority": "CRITICAL",
+  "confidence": 1.0,
+  "evidenceLines": [
+    2
+  ],
+  "promptTokens": 956,
+  "completionTokens": 294,
+  "durationMs": 6977,
+  "createdAt": "2026-07-28T09:55:59.831216Z"
+}
