@@ -50,6 +50,8 @@ public class SecurityConfig {
                         // Kayıt/login uçları herkese açık; sağlık ucu izleme için açık
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // Swagger UI / OpenAPI belgesi herkese açık (API'yi keşfetmek için)
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         // Geri kalan her şey kimlik doğrulaması ister
                         .anyRequest().authenticated())
                 // Kimlik yoksa 401, yetki yoksa 403 — ikisi de RFC 7807 ProblemDetail JSON döner

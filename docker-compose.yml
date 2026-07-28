@@ -1,6 +1,7 @@
-# AI Log Analyzer — yerel geliştirme altyapısı.
-# Tek komutla PostgreSQL ayağa kalkar: `docker compose up -d`
-# Böylece projeyi değerlendiren kişinin elle veritabanı kurmasına gerek kalmaz.
+# AI Log Analyzer — tam yığın (uygulama + veritabanı) çalıştırma.
+# Tek komutla her şey ayağa kalkar:  docker compose up --build
+#   → Java/Maven kurmadan uygulama http://localhost:8080 üzerinden erişilebilir.
+# Yalnızca veritabanını çalıştırıp uygulamayı elle geliştirmek için:  docker compose up -d postgres
 
 services:
   postgres:
@@ -20,5 +21,30 @@ services:
       timeout: 3s
       retries: 5
 
+  # Uygulama servisi: Dockerfile'dan derlenir, DB hazır olunca başlar.
+  app:
+    build: .                               # Yerel Dockerfile ile imajı derle (multi-stage)
+    container_name: loganalyzer-app
+    depends_on:
+      postgres:
+        condition: service_healthy         # DB healthcheck geçmeden uygulamayı başlatma
+    environment:
+      # Container içinden DB'ye servis adıyla erişilir (localhost DEĞİL) → host 'postgres'
+      DB_URL: jdbc:postgresql://postgres:5432/loganalyzer
+      DB_USERNAME: loganalyzer
+      DB_PASSWORD: loganalyzer
+      STORAGE_DIR: /app/uploads            # Yüklenen ham loglar bu dizine (volume ile kalıcı)
+      # Aşağıdaki değerler .env'den okunur (yoksa güvenli varsayılan). Compose, proje kökündeki .env'i otomatik kullanır.
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-default}   # API anahtarı yoksa 'mock' verilebilir
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-not-configured}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-please-32-bytes-minimum!!}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    ports:
+      - "8080:8080"                        # Uygulamaya host'tan http://localhost:8080 ile erişilir
+    volumes:
+      - loganalyzer-uploads:/app/uploads   # Yüklenen log dosyaları container silinse de kalır
+
 volumes:
   loganalyzer-pgdata:                       # Adlandırılmış volume — veriyi container yaşam döngüsünden ayırır
+  loganalyzer-uploads:                      # Yüklenen ham log dosyaları için kalıcı depolama

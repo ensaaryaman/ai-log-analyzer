@@ -1,0 +1,16 @@
+# Docker derleme bağlamını küçük ve temiz tutar (imaj derlemesi hızlanır, sırlar bağlama girmez)
+target/
+.git/
+.github/
+.idea/
+.vscode/
+.settings/
+.mvn/
+mvnw
+mvnw.cmd
+HELP.md
+raporlar/
+uploads/
+# Sırlar asla imaja/bağlama girmez (değerler compose environment'tan verilir)
+.env
+*.iml
