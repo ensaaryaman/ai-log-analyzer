@@ -31,4 +31,8 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, Long> {
     // Zaman serisi için: belirli seviyelerdeki (WARN+), zaman damgası olan kayıtları kronolojik getirir
     @Query("select e from LogEntry e where e.file.id = :fileId and e.level in :levels and e.ts is not null order by e.ts")
     List<LogEntry> findByFileAndLevels(@Param("fileId") UUID fileId, @Param("levels") Collection<LogLevel> levels);
+
+    // Belirli seviyelerdeki (ör. WARN+) kayıtları dosyadaki satır sırasına göre getirir (zaman damgası şart değil).
+    // Log ile sohbet özelliği bunu kullanır: modelin somut satır/thread'lere referans verebilmesi için.
+    List<LogEntry> findByFileIdAndLevelInOrderByLineNumberAsc(UUID fileId, Collection<LogLevel> levels);
 }
