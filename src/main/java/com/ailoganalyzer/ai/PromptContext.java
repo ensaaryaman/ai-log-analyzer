@@ -1,5 +1,7 @@
 package com.ailoganalyzer.ai;
 
+import com.ailoganalyzer.dto.ErrorStormInsight;
+
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,7 @@ public record PromptContext(
         OffsetDateTime firstTs,
         OffsetDateTime lastTs,
         Map<String, Long> levelDistribution,
-        List<ErrorGroupDigest> errorGroups
+        List<ErrorGroupDigest> errorGroups,
+        ErrorStormInsight errorStorm   // İstatistiksel hata sıçraması varsa (yoksa null); modele ek bağlam
 ) {
 }

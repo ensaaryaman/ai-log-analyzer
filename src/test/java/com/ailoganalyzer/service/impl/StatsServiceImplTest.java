@@ -235,6 +235,88 @@ class StatsServiceImplTest {
         verify(analysisRepository, never()).findByFileIdOrderByCreatedAtDesc(any());
     }
 
+    // --- Hata fırtınası (anomali) tespiti ---
+
+    @Test
+    @DisplayName("Belirgin bir sıçrama varsa hata fırtınası tespit edilir; başlangıç/tepe/oran doğru hesaplanır")
+    void detectsErrorStormOnClearSpike() {
+        UUID id = UUID.randomUUID();
+        LogFile file = fileWithId(id);
+        when(logFileRepository.findById(id)).thenReturn(Optional.of(file));
+        when(logEntryRepository.countByLevel(id)).thenReturn(List.of());
+        when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(id)).thenReturn(List.of());
+
+        // 5 sakin dakika (yalnızca WARN, hiç ERROR yok) + 1 dakikada ani 5 hatalık sıçrama
+        List<LogEntry> entries = List.of(
+                entryAt(LogLevel.WARN, "2026-01-01T10:00:00Z"),
+                entryAt(LogLevel.WARN, "2026-01-01T10:01:00Z"),
+                entryAt(LogLevel.WARN, "2026-01-01T10:02:00Z"),
+                entryAt(LogLevel.WARN, "2026-01-01T10:03:00Z"),
+                entryAt(LogLevel.WARN, "2026-01-01T10:04:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:05:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:05:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:05:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:05:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:05:00Z"));
+        when(logEntryRepository.findByFileAndLevels(eq(id), any())).thenReturn(entries);
+
+        StatsResponse stats = service.computeStats(id);
+
+        var storm = stats.errorStorm();
+        assertThat(storm).isNotNull();
+        assertThat(storm.stormStartMinute()).isEqualTo(OffsetDateTime.parse("2026-01-01T10:05:00Z"));
+        assertThat(storm.stormEndMinute()).isEqualTo(OffsetDateTime.parse("2026-01-01T10:05:00Z"));
+        assertThat(storm.peakErrorCount()).isEqualTo(5);
+        assertThat(storm.baselineAverage()).isCloseTo(0.833, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(storm.peakToBaselineRatio()).isCloseTo(6.0, org.assertj.core.data.Offset.offset(0.1));
+        assertThat(storm.anomalousMinuteCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Yeterli veri noktası yoksa (5 dakikalık kovadan az) fırtına tespit edilmez — az veriyle iddiada bulunulmaz")
+    void noStormWhenInsufficientDataPoints() {
+        UUID id = UUID.randomUUID();
+        LogFile file = fileWithId(id);
+        when(logFileRepository.findById(id)).thenReturn(Optional.of(file));
+        when(logEntryRepository.countByLevel(id)).thenReturn(List.of());
+        when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(id)).thenReturn(List.of());
+
+        // Yalnızca 4 dakikalık kova (biri belirgin bir sıçrama olsa bile) — eşik altı, tespit yapılmaz
+        List<LogEntry> entries = List.of(
+                entryAt(LogLevel.WARN, "2026-01-01T10:00:00Z"),
+                entryAt(LogLevel.WARN, "2026-01-01T10:01:00Z"),
+                entryAt(LogLevel.WARN, "2026-01-01T10:02:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:03:00Z"));
+        when(logEntryRepository.findByFileAndLevels(eq(id), any())).thenReturn(entries);
+
+        StatsResponse stats = service.computeStats(id);
+
+        assertThat(stats.errorStorm()).isNull();
+    }
+
+    @Test
+    @DisplayName("Hata oranı sabitse (varyans yok) fırtına tespit edilmez — tanım gereği anomali yok")
+    void noStormWhenErrorRateIsFlat() {
+        UUID id = UUID.randomUUID();
+        LogFile file = fileWithId(id);
+        when(logFileRepository.findById(id)).thenReturn(Optional.of(file));
+        when(logEntryRepository.countByLevel(id)).thenReturn(List.of());
+        when(errorGroupRepository.findByFileIdOrderByOccurrenceCountDesc(id)).thenReturn(List.of());
+
+        // 5 dakikanın her birinde tam olarak 2'şer ERROR — düz seyir, stddev=0
+        List<LogEntry> entries = List.of(
+                entryAt(LogLevel.ERROR, "2026-01-01T10:00:00Z"), entryAt(LogLevel.ERROR, "2026-01-01T10:00:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:01:00Z"), entryAt(LogLevel.ERROR, "2026-01-01T10:01:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:02:00Z"), entryAt(LogLevel.ERROR, "2026-01-01T10:02:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:03:00Z"), entryAt(LogLevel.ERROR, "2026-01-01T10:03:00Z"),
+                entryAt(LogLevel.ERROR, "2026-01-01T10:04:00Z"), entryAt(LogLevel.ERROR, "2026-01-01T10:04:00Z"));
+        when(logEntryRepository.findByFileAndLevels(eq(id), any())).thenReturn(entries);
+
+        StatsResponse stats = service.computeStats(id);
+
+        assertThat(stats.errorStorm()).isNull();
+    }
+
     @Test
     @DisplayName("ADMIN: geçmiş arama sahiplikten bağımsız (tüm kullanıcılar) yapılır")
     void adminSearchesPastOccurrencesAcrossAllOwners() {

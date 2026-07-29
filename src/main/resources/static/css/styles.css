@@ -227,6 +227,9 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
 }
 .insight strong { font-weight: 800; font-size: 12px; color: var(--warn-tx); }
 .insight span { font-size: 13px; color: var(--muted); }
+/* Hata fırtınası paneli: WARN→ERROR geçişinden ayırt etmek için kırmızı aksan (daha acil bir sinyal) */
+.insight.storm { border-left-color: var(--danger); }
+.insight.storm strong { color: var(--danger); }
 
 /* ---------------- Kayıtlar: hata grupları ---------------- */
 .section-heading { font-weight: 700; font-size: 14px; margin: 0; }

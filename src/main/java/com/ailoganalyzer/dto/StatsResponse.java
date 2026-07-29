@@ -15,6 +15,7 @@ import java.util.Map;
  * @param errorGroups       tekrarlanan hata grupları (en çok tekrarlanandan aza)
  * @param problemTimeline        dakikalık WARN/ERROR zaman serisi
  * @param warnToErrorTransition  WARN→ERROR geçiş içgörüsü (yoksa null)
+ * @param errorStorm             hata fırtınası (anomali) içgörüsü — istatistiksel sıçrama yoksa null
  * @param firstTs                logdaki en erken zaman
  * @param lastTs                 logdaki en geç zaman
  */
@@ -27,6 +28,7 @@ public record StatsResponse(
         List<ErrorGroupResponse> errorGroups,
         List<TimeBucket> problemTimeline,
         WarnToErrorTransition warnToErrorTransition,
+        ErrorStormInsight errorStorm,
         OffsetDateTime firstTs,
         OffsetDateTime lastTs
 ) {

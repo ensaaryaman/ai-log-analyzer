@@ -464,13 +464,24 @@ function renderCharts(stats) {
     const tl = stats.problemTimeline || [];
     if (tl.length) {
         clearEmpty('timelineChart');
+        // Hata fırtınası penceresindeki noktaları grafikte büyük+halkalı göstererek göze çarptırır
+        // (istatistiksel anomali — bkz. StatsServiceImpl.detectErrorStorm, AI gerekmez).
+        const storm = stats.errorStorm;
+        const inStorm = (iso) => storm && new Date(iso) >= new Date(storm.stormStartMinute)
+            && new Date(iso) <= new Date(storm.stormEndMinute);
         state.charts.timeline = new Chart($('timelineChart'), {
             type: 'line',
             data: {
                 labels: tl.map(b => hhmm(b.minute)),
                 datasets: [
                     { label: 'WARN', data: tl.map(b => b.warnCount), borderColor: t.warn, backgroundColor: t.warn, borderWidth: 2, tension: .3, pointRadius: 3 },
-                    { label: 'ERROR', data: tl.map(b => b.errorCount), borderColor: t.error, backgroundColor: t.error, borderWidth: 2, tension: .3, pointRadius: 3 },
+                    {
+                        label: 'ERROR', data: tl.map(b => b.errorCount), borderColor: t.error, backgroundColor: t.error,
+                        borderWidth: 2, tension: .3,
+                        pointRadius: tl.map(b => inStorm(b.minute) ? 7 : 3),
+                        pointBorderColor: tl.map(b => inStorm(b.minute) ? t.surface : t.error),
+                        pointBorderWidth: tl.map(b => inStorm(b.minute) ? 2 : 1),
+                    },
                 ],
             },
             options: {
@@ -487,6 +498,7 @@ function renderCharts(stats) {
     }
 
     renderTransition(stats);         // WARN→ERROR geçiş içgörüsü
+    renderStorm(stats);              // Hata fırtınası (anomali) içgörüsü
 }
 
 // WARN→ERROR geçişi varsa bir içgörü cümlesi gösterir ("uyarılar başladı, N dk sonra hataya dönüştü")
@@ -498,6 +510,24 @@ function renderTransition(stats) {
     el.innerHTML = `<div class="insight">
         <strong>WARN&#8594;ERROR Geçişi</strong>
         <span>Uyarılar ${hhmm(tr.firstWarn)} itibarıyla başladı ve ${gapTxt} (${hhmm(tr.firstError)}) hataya dönüştü.</span>
+    </div>`;
+}
+
+// Hata fırtınası (istatistiksel anomali) tespit edildiyse bir uyarı paneli gösterir.
+// AI'sız, yalnızca dosyanın kendi ortalama+standart sapmasına göre hesaplanır (z-score).
+function renderStorm(stats) {
+    const el = $('stormInsight');
+    const s = stats.errorStorm;
+    if (!s) { el.innerHTML = ''; return; }
+    const ratioTxt = s.peakToBaselineRatio != null
+        ? ` — dosya ortalamasının (~${s.baselineAverage.toFixed(1)}/dk) yaklaşık ${s.peakToBaselineRatio.toFixed(1)} katı`
+        : '';
+    const rangeTxt = s.stormStartMinute === s.stormEndMinute
+        ? hhmm(s.stormStartMinute)
+        : `${hhmm(s.stormStartMinute)}–${hhmm(s.stormEndMinute)}`;
+    el.innerHTML = `<div class="insight storm">
+        <strong>Hata Fırtınası Tespit Edildi</strong>
+        <span>${rangeTxt} aralığında hata oranı dakikada ${s.peakErrorCount} hataya sıçradı${ratioTxt}.</span>
     </div>`;
 }
 

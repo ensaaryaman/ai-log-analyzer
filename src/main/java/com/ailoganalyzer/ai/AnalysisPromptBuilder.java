@@ -1,7 +1,9 @@
 package com.ailoganalyzer.ai;
 
+import com.ailoganalyzer.dto.ErrorStormInsight;
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -49,6 +51,20 @@ public class AnalysisPromptBuilder {
         sb.append("\nSEVİYE DAĞILIMI:\n");
         for (Map.Entry<String, Long> e : ctx.levelDistribution().entrySet()) {
             sb.append("  ").append(e.getKey()).append(": ").append(e.getValue()).append("\n");
+        }
+
+        if (ctx.errorStorm() != null) {
+            sb.append("\nHATA FIRTINASI TESPİT EDİLDİ (istatistiksel anomali, z-score):\n");
+            ErrorStormInsight storm = ctx.errorStorm();
+            sb.append("  Başlangıç: ").append(storm.stormStartMinute())
+              .append(" | Bitiş: ").append(storm.stormEndMinute()).append("\n");
+            sb.append("  Tepe nokta: dakikada ").append(storm.peakErrorCount()).append(" hata")
+              .append(" (dosya ortalaması: ").append(String.format(Locale.ROOT, "%.1f", storm.baselineAverage())).append("/dk")
+              .append(storm.peakToBaselineRatio() != null
+                      ? ", yaklaşık " + String.format(Locale.ROOT, "%.1f", storm.peakToBaselineRatio()) + " kat)"
+                      : ")")
+              .append("\n");
+            sb.append("  Bu, olağan seyrin çok üzerinde ani bir hata artışını gösterir — kök neden ve önceliği belirlerken dikkate al.\n");
         }
 
         sb.append("\nHATA GRUPLARI (tekrar sayısına göre):\n");

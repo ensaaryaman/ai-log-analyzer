@@ -1,5 +1,6 @@
 package com.ailoganalyzer.ai;
 
+import com.ailoganalyzer.dto.ErrorStormInsight;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,8 @@ class AnalysisPromptBuilderTest {
                         "java.sql.SQLException", "DB baglanti hatasi", 3,
                         OffsetDateTime.parse("2026-07-20T14:05:00Z"),
                         OffsetDateTime.parse("2026-07-20T14:07:00Z"),
-                        42, "at com.example.Foo.bar(Foo.java:10)")));
+                        42, "at com.example.Foo.bar(Foo.java:10)")),
+                null);
 
         AnalysisPrompt prompt = builder.build(ctx);
 
@@ -54,9 +56,43 @@ class AnalysisPromptBuilderTest {
     @DisplayName("Hata grubu yoksa prompt yine de geçerli üretilir")
     void handlesNoErrorGroups() {
         PromptContext ctx = new PromptContext(
-                "clean.log", "LOGBACK", 10, 0, 0, null, null, Map.of("INFO", 10L), List.of());
+                "clean.log", "LOGBACK", 10, 0, 0, null, null, Map.of("INFO", 10L), List.of(), null);
 
         AnalysisPrompt prompt = builder.build(ctx);
         assertThat(prompt.user()).contains("belirgin bir hata grubu yok");
+    }
+
+    @Test
+    @DisplayName("Hata fırtınası tespit edildiyse prompt'a başlangıç/bitiş/tepe nokta bilgisiyle yansır")
+    void includesErrorStormWhenPresent() {
+        ErrorStormInsight storm = new ErrorStormInsight(
+                OffsetDateTime.parse("2026-07-20T14:03:00Z"),
+                OffsetDateTime.parse("2026-07-20T14:05:00Z"),
+                12, 1.5, 8.0, 3);
+        PromptContext ctx = new PromptContext(
+                "app.log", "SPRING_BOOT", 100, 20, 5,
+                OffsetDateTime.parse("2026-07-20T14:00:00Z"),
+                OffsetDateTime.parse("2026-07-20T14:10:00Z"),
+                Map.of("ERROR", 20L), List.of(), storm);
+
+        AnalysisPrompt prompt = builder.build(ctx);
+
+        assertThat(prompt.user())
+                .contains("HATA FIRTINASI")
+                .contains("2026-07-20T14:03")
+                .contains("12 hata")
+                .contains("8.0 kat");
+    }
+
+    @Test
+    @DisplayName("Hata fırtınası tespit edilmediyse (null) prompt'ta o bölüm hiç yer almaz")
+    void omitsErrorStormSectionWhenAbsent() {
+        PromptContext ctx = new PromptContext(
+                "app.log", "SPRING_BOOT", 100, 2, 1,
+                null, null, Map.of("INFO", 100L), List.of(), null);
+
+        AnalysisPrompt prompt = builder.build(ctx);
+
+        assertThat(prompt.user()).doesNotContain("HATA FIRTINASI");
     }
 }

@@ -150,7 +150,8 @@ public class AnalysisServiceImpl implements AnalysisService {
                 file.getFirstTs(),
                 file.getLastTs(),
                 stats.levelDistribution(),
-                digests);
+                digests,
+                stats.errorStorm());   // İstatistiksel hata sıçraması varsa modele ek bağlam olarak verilir
     }
 
     // ErrorGroup entity → prompt digest (stack trace kısaltılır)

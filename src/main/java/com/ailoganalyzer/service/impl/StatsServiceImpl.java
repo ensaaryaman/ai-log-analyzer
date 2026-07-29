@@ -6,6 +6,7 @@ import com.ailoganalyzer.domain.LogEntry;
 import com.ailoganalyzer.domain.LogFile;
 import com.ailoganalyzer.domain.LogLevel;
 import com.ailoganalyzer.dto.ErrorGroupResponse;
+import com.ailoganalyzer.dto.ErrorStormInsight;
 import com.ailoganalyzer.dto.ExceptionStat;
 import com.ailoganalyzer.dto.StatsResponse;
 import com.ailoganalyzer.dto.TimeBucket;
@@ -36,6 +37,9 @@ import java.util.UUID;
  */
 @Service
 public class StatsServiceImpl implements StatsService {
+
+    private static final double STORM_Z_THRESHOLD = 2.0;   // Ortalamadan kaç standart sapma üstü "anomali" sayılır
+    private static final int STORM_MIN_BUCKETS = 5;        // Anlamlı istatistik için en az bu kadar dakikalık veri noktası gerekir
 
     private final LogFileRepository logFileRepository;
     private final LogEntryRepository logEntryRepository;
@@ -75,6 +79,7 @@ public class StatsServiceImpl implements StatsService {
         List<ExceptionStat> topExceptions = topExceptions(groups);
         List<TimeBucket> timeline = problemTimeline(fileId);
         WarnToErrorTransition transition = computeTransition(timeline);
+        ErrorStormInsight storm = detectErrorStorm(timeline);
 
         return new StatsResponse(
                 file.getId(),
@@ -85,8 +90,48 @@ public class StatsServiceImpl implements StatsService {
                 groupDtos,
                 timeline,
                 transition,
+                storm,
                 file.getFirstTs(),
                 file.getLastTs()
+        );
+    }
+
+    // Hata fırtınası (anomali) tespiti: dakikalık ERROR sayısının, dosyanın kendi ortalama+standart
+    // sapmasının çok üzerine çıktığı bir sıçrama var mı? Basit z-score yaklaşımı — AI'sız, deterministik.
+    // Yeterli veri noktası yoksa (STORM_MIN_BUCKETS altı) veya seyir tamamen düzse (stddev=0) null
+    // döner: az veri üzerinden "fırtına var" iddiasında bulunmak yanlış alarma yol açar.
+    private ErrorStormInsight detectErrorStorm(List<TimeBucket> timeline) {
+        if (timeline.size() < STORM_MIN_BUCKETS) {
+            return null;
+        }
+
+        double mean = timeline.stream().mapToLong(TimeBucket::errorCount).average().orElse(0);
+        double variance = timeline.stream()
+                .mapToDouble(b -> Math.pow(b.errorCount() - mean, 2))
+                .average().orElse(0);
+        double stddev = Math.sqrt(variance);
+        if (stddev <= 0) {
+            return null;   // Sabit/düz seyir → tanım gereği anomali yok
+        }
+
+        double threshold = mean + STORM_Z_THRESHOLD * stddev;
+        List<TimeBucket> anomalous = timeline.stream()
+                .filter(b -> b.errorCount() > threshold)
+                .toList();   // timeline zaten dakikaya göre kronolojik sıralı (bkz. problemTimeline)
+        if (anomalous.isEmpty()) {
+            return null;
+        }
+
+        long peak = anomalous.stream().mapToLong(TimeBucket::errorCount).max().orElse(0);
+        Double ratio = mean > 0 ? peak / mean : null;   // Ortalama 0'sa "kaç kat" anlamsız → null
+
+        return new ErrorStormInsight(
+                anomalous.get(0).minute(),                    // İlk anomali dakikası ("fırtına başlangıcı")
+                anomalous.get(anomalous.size() - 1).minute(),  // Son anomali dakikası
+                peak,
+                mean,
+                ratio,
+                anomalous.size()
         );
     }
 
