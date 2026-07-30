@@ -1,0 +1,142 @@
+2026-07-29T08:00:00.102+03:00  INFO 8842 --- [           main] com.example.shop.ShopApplication : Starting ShopApplication using Java 21.0.3 with PID 8842
+2026-07-29T08:00:00.145+03:00  INFO 8842 --- [           main] com.example.shop.ShopApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-29T08:00:00.980+03:00  INFO 8842 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer : Tomcat initialized with port(s): 8080 (http)
+2026-07-29T08:00:01.012+03:00  INFO 8842 --- [           main] o.apache.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-29T08:00:01.340+03:00  INFO 8842 --- [           main] com.zaxxer.hikari.HikariDataSource : HikariPool-1 - Starting...
+2026-07-29T08:00:01.812+03:00  INFO 8842 --- [           main] com.zaxxer.hikari.HikariDataSource : HikariPool-1 - Start completed.
+2026-07-29T08:00:02.055+03:00  INFO 8842 --- [           main] o.f.core.internal.command.DbMigrate : Current version of schema "public": 3
+2026-07-29T08:00:02.201+03:00  INFO 8842 --- [           main] o.f.core.internal.command.DbMigrate : Schema "public" is up to date. No migration necessary.
+2026-07-29T08:00:02.890+03:00  INFO 8842 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-29T08:00:02.921+03:00  INFO 8842 --- [           main] com.example.shop.ShopApplication : Started ShopApplication in 2.913 seconds (process running for 3.102)
+2026-07-29T08:00:15.004+03:00  INFO 8842 --- [http-nio-8080-exec-1] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10041
+2026-07-29T08:00:15.061+03:00 DEBUG 8842 --- [http-nio-8080-exec-1] com.example.shop.order.OrderService : Stok kontrolu yapiliyor: urunId=5521
+2026-07-29T08:00:15.118+03:00  INFO 8842 --- [http-nio-8080-exec-1] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10041
+2026-07-29T08:01:02.330+03:00  INFO 8842 --- [http-nio-8080-exec-2] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10042
+2026-07-29T08:01:02.402+03:00 DEBUG 8842 --- [http-nio-8080-exec-2] com.example.shop.order.OrderService : Stok kontrolu yapiliyor: urunId=8834
+2026-07-29T08:01:02.455+03:00  INFO 8842 --- [http-nio-8080-exec-2] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10042
+2026-07-29T08:01:47.220+03:00  INFO 8842 --- [http-nio-8080-exec-3] com.example.shop.payment.PaymentGatewayClient : Odeme saglayicisina istek gonderildi: siparisId=10041
+2026-07-29T08:01:47.980+03:00  INFO 8842 --- [http-nio-8080-exec-3] com.example.shop.payment.PaymentGatewayClient : Odeme onaylandi: siparisId=10041
+2026-07-29T08:02:30.015+03:00  INFO 8842 --- [http-nio-8080-exec-4] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10043
+2026-07-29T08:02:30.078+03:00  INFO 8842 --- [http-nio-8080-exec-4] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10043
+2026-07-29T08:03:11.500+03:00  INFO 8842 --- [scheduling-1] com.example.shop.report.DailyReportJob : Gunluk rapor uretimi baslatildi
+2026-07-29T08:03:12.870+03:00  INFO 8842 --- [scheduling-1] com.example.shop.report.DailyReportJob : Gunluk rapor uretimi tamamlandi: kayitSayisi=1204
+2026-07-29T08:04:05.221+03:00  INFO 8842 --- [http-nio-8080-exec-5] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10044
+2026-07-29T08:04:05.290+03:00  INFO 8842 --- [http-nio-8080-exec-5] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10044
+2026-07-29T08:05:00.410+03:00  WARN 8842 --- [pool-2-thread-1] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Connection is not available, request timed out after 5000ms
+2026-07-29T08:05:00.412+03:00  WARN 8842 --- [pool-2-thread-1] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Pool stats (total=10, active=10, idle=0, waiting=3)
+2026-07-29T08:05:44.108+03:00  INFO 8842 --- [http-nio-8080-exec-6] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10045
+2026-07-29T08:05:44.955+03:00  INFO 8842 --- [http-nio-8080-exec-6] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10045
+2026-07-29T08:06:00.501+03:00  WARN 8842 --- [pool-2-thread-2] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Connection is not available, request timed out after 5000ms
+2026-07-29T08:06:00.503+03:00  WARN 8842 --- [pool-2-thread-2] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Pool stats (total=10, active=10, idle=0, waiting=5)
+2026-07-29T08:06:31.777+03:00  INFO 8842 --- [http-nio-8080-exec-7] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10046
+2026-07-29T08:06:32.001+03:00  INFO 8842 --- [http-nio-8080-exec-7] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10046
+2026-07-29T08:07:00.620+03:00  WARN 8842 --- [pool-2-thread-3] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Connection is not available, request timed out after 5000ms
+2026-07-29T08:07:00.622+03:00  WARN 8842 --- [pool-2-thread-3] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Pool stats (total=10, active=10, idle=0, waiting=8)
+2026-07-29T08:08:00.740+03:00  WARN 8842 --- [pool-2-thread-1] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Connection is not available, request timed out after 5000ms
+2026-07-29T08:08:00.742+03:00  WARN 8842 --- [pool-2-thread-1] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Pool stats (total=10, active=10, idle=0, waiting=11)
+2026-07-29T08:09:00.855+03:00  WARN 8842 --- [pool-2-thread-2] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Connection is not available, request timed out after 5000ms
+2026-07-29T08:09:00.857+03:00  WARN 8842 --- [pool-2-thread-2] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Pool stats (total=10, active=10, idle=0, waiting=14)
+2026-07-29T08:10:01.030+03:00 ERROR 8842 --- [http-nio-8080-exec-8] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10047
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:10:11.114+03:00 ERROR 8842 --- [http-nio-8080-exec-9] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10048
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:10:19.400+03:00 ERROR 8842 --- [http-nio-8080-exec-10] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10049
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:701)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:10:27.612+03:00 ERROR 8842 --- [http-nio-8080-exec-1] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10050
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:10:35.809+03:00 ERROR 8842 --- [http-nio-8080-exec-2] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10051
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:698)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:10:44.203+03:00 ERROR 8842 --- [http-nio-8080-exec-3] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10052
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:11:02.550+03:00 ERROR 8842 --- [http-nio-8080-exec-4] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10053
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:11:18.940+03:00 ERROR 8842 --- [http-nio-8080-exec-5] com.example.shop.order.OrderService : Siparis islenirken beklenmeyen hata: siparisId=10054
+java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 5000ms
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:699)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)
+	at com.example.shop.order.OrderRepository.save(OrderRepository.java:88)
+	at com.example.shop.order.OrderService.processOrder(OrderService.java:142)
+	at com.example.shop.order.OrderController.create(OrderController.java:54)
+Caused by: java.net.SocketTimeoutException: connect timed out
+	at java.base/java.net.Socket.connect(Socket.java:607)
+2026-07-29T08:11:33.017+03:00  WARN 8842 --- [http-nio-8080-exec-6] com.example.shop.order.OrderController : Siparis islenemedi, yeniden deneme kuyruguna alindi: siparisId=10055
+2026-07-29T08:12:00.301+03:00  INFO 8842 --- [pool-2-thread-1] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Pool stats (total=10, active=6, idle=4, waiting=0)
+2026-07-29T08:13:05.412+03:00 ERROR 8842 --- [scheduling-2] com.example.shop.inventory.InventoryService : Stok senkronizasyonu basarisiz: urunId=5521
+java.lang.NullPointerException: Cannot invoke "com.example.shop.inventory.WarehouseClient.getStock(String)" because "this.warehouseClient" is null
+	at com.example.shop.inventory.InventoryService.syncStock(InventoryService.java:73)
+	at com.example.shop.inventory.InventorySyncJob.run(InventorySyncJob.java:31)
+2026-07-29T08:14:20.880+03:00 ERROR 8842 --- [scheduling-2] com.example.shop.inventory.InventoryService : Stok senkronizasyonu basarisiz: urunId=8834
+java.lang.NullPointerException: Cannot invoke "com.example.shop.inventory.WarehouseClient.getStock(String)" because "this.warehouseClient" is null
+	at com.example.shop.inventory.InventoryService.syncStock(InventoryService.java:73)
+	at com.example.shop.inventory.InventorySyncJob.run(InventorySyncJob.java:31)
+2026-07-29T08:15:00.075+03:00  INFO 8842 --- [http-nio-8080-exec-7] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10056
+2026-07-29T08:15:00.612+03:00  INFO 8842 --- [http-nio-8080-exec-7] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10056
+2026-07-29T08:15:44.290+03:00  INFO 8842 --- [http-nio-8080-exec-8] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10057
+2026-07-29T08:15:44.850+03:00  INFO 8842 --- [http-nio-8080-exec-8] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10057
+2026-07-29T08:16:10.003+03:00  INFO 8842 --- [pool-2-thread-1] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Pool stats (total=10, active=2, idle=8, waiting=0)
+2026-07-29T08:16:33.500+03:00  INFO 8842 --- [http-nio-8080-exec-9] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10058
+2026-07-29T08:16:34.020+03:00  INFO 8842 --- [http-nio-8080-exec-9] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10058
+2026-07-29T08:17:12.410+03:00  INFO 8842 --- [http-nio-8080-exec-10] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10059
+2026-07-29T08:17:12.955+03:00  INFO 8842 --- [http-nio-8080-exec-10] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10059
+2026-07-29T08:18:05.601+03:00  INFO 8842 --- [http-nio-8080-exec-1] com.example.shop.payment.PaymentGatewayClient : Odeme saglayicisina istek gonderildi: siparisId=10056
+2026-07-29T08:18:06.340+03:00  INFO 8842 --- [http-nio-8080-exec-1] com.example.shop.payment.PaymentGatewayClient : Odeme onaylandi: siparisId=10056
+2026-07-29T08:19:00.115+03:00 DEBUG 8842 --- [scheduling-3] com.example.shop.cache.CacheEvictionJob : Onbellek temizligi calisiyor: bolge=urun-katalogu
+2026-07-29T08:19:00.622+03:00  INFO 8842 --- [scheduling-3] com.example.shop.cache.CacheEvictionJob : Onbellek temizligi tamamlandi: silinenKayit=342
+2026-07-29T08:20:14.780+03:00  INFO 8842 --- [http-nio-8080-exec-2] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10060
+2026-07-29T08:20:15.290+03:00  INFO 8842 --- [http-nio-8080-exec-2] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10060
+2026-07-29T08:21:40.033+03:00  INFO 8842 --- [http-nio-8080-exec-3] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10061
+2026-07-29T08:21:40.591+03:00  INFO 8842 --- [http-nio-8080-exec-3] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10061
+2026-07-29T08:22:50.208+03:00  WARN 8842 --- [http-nio-8080-exec-4] com.example.shop.payment.PaymentGatewayClient : Odeme saglayicisi yavas yaniyor: sureMs=4210
+2026-07-29T08:23:10.402+03:00  INFO 8842 --- [http-nio-8080-exec-4] com.example.shop.payment.PaymentGatewayClient : Odeme onaylandi: siparisId=10061
+2026-07-29T08:24:05.900+03:00  INFO 8842 --- [http-nio-8080-exec-5] com.example.shop.order.OrderController : Yeni siparis istegi alindi: siparisId=10062
+2026-07-29T08:24:06.440+03:00  INFO 8842 --- [http-nio-8080-exec-5] com.example.shop.order.OrderService : Siparis basariyla olusturuldu: siparisId=10062
+2026-07-29T08:25:00.010+03:00  INFO 8842 --- [scheduling-1] com.example.shop.report.DailyReportJob : Saatlik ozet raporu uretildi: toplamSiparis=22, basarisizSiparis=8
