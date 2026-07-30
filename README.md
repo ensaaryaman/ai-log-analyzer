@@ -27,6 +27,7 @@ hata kök nedenini/çözümünü öneren, dashboard'da görselleştiren ve log i
 - **Dashboard:** Seviye dağılımı, en sık istisnalar, dakikalık WARN/ERROR zaman serisi (Chart.js).
 - **PDF rapor:** Analiz sonucunu Türkçe karakter destekli PDF olarak indirme.
 - **Kimlik doğrulama + roller:** JWT tabanlı login/kayıt; her kullanıcı yalnızca kendi yüklediği logları görür/analiz eder/siler, **ADMIN** rolü tüm kullanıcıların loglarını denetleyebilir.
+- **Çok dilli arayüz (TR/EN):** Tek tıkla Türkçe/İngilizce geçiş (tema düğmesi gibi kalıcı — `localStorage`); tüm arayüz metinleri, yer tutucular, tarih/saat biçimleri ve dinamik içerik (grafikler, analiz kartı, sohbet) anında ve yeniden veri çekmeden çevrilir.
 - **Tek komutla demo:** `mock` AI profili ile API anahtarı olmadan da tüm akış (login hariç hiçbir şey kısıtlanmadan) denenebilir.
 
 ## Mimari Özeti
@@ -38,7 +39,7 @@ Yükleme → Parse (format algıla + kayıtlara böl) → Gruplama (fingerprint,
 ```
 
 - **Backend:** Java 21, Spring Boot 3.4.7, Spring Data JPA, Flyway (şemanın tek doğruluk kaynağı), PostgreSQL, Spring Security + JWT, Spring AI (OpenAI-uyumlu istemci → Gemini), springdoc-openapi.
-- **Frontend:** Bağımlılıksız (framework'süz) vanilla JS + CSS, Spring Boot tarafından statik olarak sunulur; Chart.js tek yerel bağımlılık.
+- **Frontend:** Bağımlılıksız (framework'süz) vanilla JS + CSS, Spring Boot tarafından statik olarak sunulur; Chart.js tek yerel bağımlılık. Dil desteği harici bir i18n kütüphanesi olmadan, sabit metinler için `data-i18n` attribute'ları + dinamik metinler için bir `t()` sözlük fonksiyonuyla sağlanır.
 - **Katmanlar:** `controller` (HTTP) → `service`/`service.impl` (iş mantığı, arayüzlere bağımlı — DIP) → `repository` (Spring Data) → `domain` (JPA entity). `parse`/`distill`/`ai`/`security` paketleri kendi sorumluluklarına ayrılmış bağımsız modüller.
 - Tam mimari/tasarım kararları ve gün gün gerekçeler için bkz. [`PLAN.md`](PLAN.md).
 

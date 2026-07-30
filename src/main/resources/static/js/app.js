@@ -10,16 +10,287 @@ const state = {
     selectedId: null,     // Seçili logun kimliği
     charts: {},           // Aktif Chart.js örnekleri (yeni seçimde yok edilir)
     stats: null,          // Seçili logun istatistikleri (tema değişince grafikleri yeniden çizmek için)
+    analyses: [],         // Seçili logun analiz geçmişi (dil değişince yeniden çizmek için)
     chatAnalysisId: null, // Sohbetin bağlı olduğu analiz (en son analiz)
     activeTab: 'overview',
+    lang: localStorage.getItem('lang') || 'tr',   // Arayüz dili: 'tr' | 'en' (tema gibi kalıcı)
 };
 
 // --- DOM kısayolları ---
 const $ = (id) => document.getElementById(id);
 
-// Sayfa yüklenince: her zaman tema/sekme/yükleme/giriş olaylarını bağla, sonra oturumu doğrula
+/* ---------------- Dil (Türkçe/İngilizce) ---------------- */
+// Tüm arayüz metinleri burada toplanır; sabit HTML metinleri data-i18n* attribute'ları üzerinden,
+// JS'in ürettiği dinamik metinler t() çağrılarıyla çevrilir. Yeni bir metin eklerken önce burada
+// bir anahtar aç, sonra hem HTML'e hem JS'e anahtarı kullan — ham Türkçe/İngilizce metin gömme.
+const I18N = {
+    tr: {
+        appSubtitle: 'Log dosyalarını yapay zeka ile analiz edin',
+        providerBadgeTitle: 'Aktif yapay zeka modeli',
+        userChipTitle: 'Giriş yapan kullanıcı',
+        logout: 'Çıkış Yap',
+        authSubtitle: 'Devam etmek için giriş yapın',
+        loginTab: 'Giriş Yap',
+        registerTab: 'Kayıt Ol',
+        usernamePlaceholder: 'Kullanıcı adı',
+        passwordPlaceholder: 'Şifre',
+        authHint: 'Varsayılan yönetici: <code>admin / admin123</code>',
+        uploadTitle: 'Log dosyası yükleyin',
+        uploadSubtitle: '.log / .txt — sürükleyip bırakın veya seçin (maks. 10 MB)',
+        chooseFile: 'Dosya Seç',
+        uploadedLogs: 'Yüklenen Loglar',
+        noFilesYet: 'Henüz dosya yok. Yukarıdan bir log yükleyin.',
+        noLogSelected: 'Görüntülenecek log yok',
+        noLogSelectedHint: 'Bir log seçin veya yeni bir dosya yükleyin.',
+        analyzeBtn: 'Yapay Zeka ile Analiz Et',
+        reanalyzeBtn: 'Yeniden Analiz Et',
+        analyzingBtn: 'Analiz ediliyor...',
+        tabOverview: 'Genel Bakış',
+        tabRecords: 'Kayıtlar',
+        tabAnalysis: 'Analiz',
+        tabChat: 'Sohbet',
+        chartLevelDistribution: 'Seviye Dağılımı',
+        chartTopExceptions: 'En Sık İstisnalar',
+        chartTimeline: 'Zaman Serisi — Dakikalık WARN / ERROR',
+        logEntriesHeading: 'Log Kayıtları',
+        levelFilterTitle: 'Seviyeye göre filtrele',
+        allLevels: 'Tüm seviyeler',
+        sessionExpired: 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.',
+        lightTheme: 'Açık Tema',
+        darkTheme: 'Koyu Tema',
+        uploadingStatus: '"{name}" yükleniyor ve ayrıştırılıyor...',
+        uploadedStatus: '"{name}" yüklendi — {lines} satır, {errors} hata.',
+        deleteTitle: 'Bu logu ve analizlerini sil',
+        delete: 'Sil',
+        fileCounts: '{errors} hata · {warns} uyarı',
+        deleteConfirm: '"{name}" ve tüm analizleri kalıcı olarak silinsin mi?',
+        thisLog: 'bu log',
+        deleteFailed: 'Silinemedi: {msg}',
+        unknownFormat: 'bilinmeyen format',
+        detailMetaLine: '{format} · {lines} satır · {kb} KB',
+        statTotal: 'Toplam',
+        statErrors: 'Hata',
+        statWarnings: 'Uyarı',
+        statGroups: 'Grup',
+        repeatedGroupsHeading: 'Tekrarlanan Hata Grupları',
+        noException: 'istisna yok',
+        knownError: 'Bilinen hata',
+        lineNumSuffix: '(satır {n})',
+        evidenceChip: 'satır {n}',
+        knowledgeSeenInMore: ' (toplam {count} farklı dosyada görülmüş)',
+        knowledgeSolutionLabel: 'O zamanki çözüm:',
+        knowledgeNoAnalysis: 'O dosya için henüz bir yapay zeka analizi yapılmamış.',
+        knowledgeTitle: 'Bu hatayı daha önce <strong>{filename}</strong> dosyasında görmüştünüz{extra} — {date}',
+        chartNoData: 'Veri yok',
+        chartNoExceptions: 'İstisna yok',
+        chartNoTimeline: 'Zaman damgalı WARN/ERROR yok',
+        transitionHeading: 'WARN&#8594;ERROR Geçişi',
+        gapMinutesLater: '{n} dakika sonra',
+        sameMinute: 'aynı dakikada',
+        transitionSentence: 'Uyarılar {firstWarn} itibarıyla başladı ve {gap} ({firstError}) hataya dönüştü.',
+        stormHeading: 'Hata Fırtınası Tespit Edildi',
+        stormRatioSuffix: ' — dosya ortalamasının (~{avg}/dk) yaklaşık {ratio} katı',
+        stormSentence: '{range} aralığında hata oranı dakikada {peak} hataya sıçradı{ratioTxt}.',
+        loadingEllipsis: 'yükleniyor...',
+        entriesLoadFailed: 'Kayıtlar yüklenemedi.',
+        noMatchingEntries: 'Bu filtreye uygun kayıt yok.',
+        moreEntries: '... ve {n} kayıt daha',
+        goToLineTitle: 'Satıra git',
+        reanalyzeConfirm: 'Bu dosya zaten analiz edildi. Yeniden analiz etmek istediğinize emin misiniz?\nÖnceki sonuç geçmişte saklanmaya devam edecek.',
+        analyzingArea: 'Yapay zeka analiz ediyor... (10-20 saniye sürebilir)',
+        analysisFailed: 'Analiz başarısız',
+        noAnalysisYet: 'Bu log için henüz analiz yapılmadı. Yukarıdaki "{btn}" butonuyla başlatabilirsiniz.',
+        historyNote: '{n} analiz — en yenisi üstte',
+        confidenceLabel: 'Güven: %{pct}',
+        downloadPdfBtn: 'PDF İndir',
+        downloadPdfTitle: 'Analizi PDF olarak indir',
+        summaryLabel: 'Özet',
+        rootCauseLabel: 'Olası Kök Neden',
+        solutionLabel: 'Çözüm Önerisi',
+        modelLabel: 'Model: {model}',
+        durationLabel: 'Süre: {ms} ms',
+        tokensLabel: 'Token: {p} + {c}',
+        pdfDownloadFailed: 'PDF indirilemedi: {msg}',
+        pdfFilename: 'analiz-raporu.pdf',
+        chatHeading: 'Log ile Sohbet',
+        chatHint: '(en son analiz bağlamında)',
+        chatPlaceholder: 'Bu log hakkında bir soru sorun...',
+        chatSend: 'Gönder',
+        chatNeedsAnalysis: 'Sohbet için önce bir analiz gerekir.',
+        chatNoMessages: 'Henüz mesaj yok. İlk soruyu sorun.',
+        chatError: 'Hata: {msg}',
+        chatTyping: 'yanıtlıyor...',
+        priority: { CRITICAL: 'KRİTİK', HIGH: 'YÜKSEK', MEDIUM: 'ORTA', LOW: 'DÜŞÜK' },
+        status: { UPLOADED: 'yüklendi', PARSED: 'ayrıştırıldı', ANALYZED: 'analiz edildi', FAILED: 'hata' },
+        locale: 'tr-TR',
+    },
+    en: {
+        appSubtitle: 'Analyze log files with artificial intelligence',
+        providerBadgeTitle: 'Active AI model',
+        userChipTitle: 'Signed-in user',
+        logout: 'Log Out',
+        authSubtitle: 'Sign in to continue',
+        loginTab: 'Sign In',
+        registerTab: 'Register',
+        usernamePlaceholder: 'Username',
+        passwordPlaceholder: 'Password',
+        authHint: 'Default admin: <code>admin / admin123</code>',
+        uploadTitle: 'Upload a log file',
+        uploadSubtitle: '.log / .txt — drag & drop or choose a file (max 10 MB)',
+        chooseFile: 'Choose File',
+        uploadedLogs: 'Uploaded Logs',
+        noFilesYet: 'No files yet. Upload a log above.',
+        noLogSelected: 'No log selected',
+        noLogSelectedHint: 'Select a log or upload a new file.',
+        analyzeBtn: 'Analyze with AI',
+        reanalyzeBtn: 'Re-analyze',
+        analyzingBtn: 'Analyzing...',
+        tabOverview: 'Overview',
+        tabRecords: 'Records',
+        tabAnalysis: 'Analysis',
+        tabChat: 'Chat',
+        chartLevelDistribution: 'Level Distribution',
+        chartTopExceptions: 'Top Exceptions',
+        chartTimeline: 'Time Series — WARN / ERROR per Minute',
+        logEntriesHeading: 'Log Entries',
+        levelFilterTitle: 'Filter by level',
+        allLevels: 'All levels',
+        sessionExpired: 'Your session has expired. Please sign in again.',
+        lightTheme: 'Light Theme',
+        darkTheme: 'Dark Theme',
+        uploadingStatus: '"{name}" uploading and parsing...',
+        uploadedStatus: '"{name}" uploaded — {lines} lines, {errors} errors.',
+        deleteTitle: 'Delete this log and its analyses',
+        delete: 'Delete',
+        fileCounts: '{errors} errors · {warns} warnings',
+        deleteConfirm: 'Permanently delete "{name}" and all its analyses?',
+        thisLog: 'this log',
+        deleteFailed: 'Could not delete: {msg}',
+        unknownFormat: 'unknown format',
+        detailMetaLine: '{format} · {lines} lines · {kb} KB',
+        statTotal: 'Total',
+        statErrors: 'Errors',
+        statWarnings: 'Warnings',
+        statGroups: 'Groups',
+        repeatedGroupsHeading: 'Repeated Error Groups',
+        noException: 'no exception',
+        knownError: 'Known error',
+        lineNumSuffix: '(line {n})',
+        evidenceChip: 'line {n}',
+        knowledgeSeenInMore: ' (seen in {count} different files in total)',
+        knowledgeSolutionLabel: 'Solution at the time:',
+        knowledgeNoAnalysis: 'No AI analysis has been done for that file yet.',
+        knowledgeTitle: 'You have seen this error before in <strong>{filename}</strong>{extra} — {date}',
+        chartNoData: 'No data',
+        chartNoExceptions: 'No exceptions',
+        chartNoTimeline: 'No timestamped WARN/ERROR',
+        transitionHeading: 'WARN&#8594;ERROR Transition',
+        gapMinutesLater: '{n} minutes later',
+        sameMinute: 'in the same minute',
+        transitionSentence: 'Warnings started at {firstWarn} and turned into errors {gap} ({firstError}).',
+        stormHeading: 'Error Storm Detected',
+        stormRatioSuffix: ' — about {ratio}× the file\'s average (~{avg}/min)',
+        stormSentence: 'Between {range}, the error rate spiked to {peak} errors/minute{ratioTxt}.',
+        loadingEllipsis: 'loading...',
+        entriesLoadFailed: 'Could not load entries.',
+        noMatchingEntries: 'No entries match this filter.',
+        moreEntries: '... and {n} more entries',
+        goToLineTitle: 'Go to line',
+        reanalyzeConfirm: 'This file has already been analyzed. Are you sure you want to re-analyze it?\nThe previous result will remain in the history.',
+        analyzingArea: 'AI is analyzing... (may take 10-20 seconds)',
+        analysisFailed: 'Analysis failed',
+        noAnalysisYet: 'No analysis has been done for this log yet. You can start one with the "{btn}" button above.',
+        historyNote: '{n} analyses — newest first',
+        confidenceLabel: 'Confidence: {pct}%',
+        downloadPdfBtn: 'Download PDF',
+        downloadPdfTitle: 'Download analysis as PDF',
+        summaryLabel: 'Summary',
+        rootCauseLabel: 'Possible Root Cause',
+        solutionLabel: 'Solution',
+        modelLabel: 'Model: {model}',
+        durationLabel: 'Duration: {ms} ms',
+        tokensLabel: 'Tokens: {p} + {c}',
+        pdfDownloadFailed: 'Could not download PDF: {msg}',
+        pdfFilename: 'analysis-report.pdf',
+        chatHeading: 'Chat with the Log',
+        chatHint: '(in the context of the latest analysis)',
+        chatPlaceholder: 'Ask a question about this log...',
+        chatSend: 'Send',
+        chatNeedsAnalysis: 'An analysis is required before chatting.',
+        chatNoMessages: 'No messages yet. Ask the first question.',
+        chatError: 'Error: {msg}',
+        chatTyping: 'responding...',
+        priority: { CRITICAL: 'CRITICAL', HIGH: 'HIGH', MEDIUM: 'MEDIUM', LOW: 'LOW' },
+        status: { UPLOADED: 'uploaded', PARSED: 'parsed', ANALYZED: 'analyzed', FAILED: 'failed' },
+        locale: 'en-US',
+    },
+};
+
+// Anahtarı aktif dile çevirir; {ad} biçimli yer tutucuları params ile değiştirir
+function t(key, params) {
+    const dict = I18N[state.lang] || I18N.tr;
+    let str = dict[key] !== undefined ? dict[key] : I18N.tr[key];
+    if (str === undefined) return key;
+    if (params) {
+        Object.keys(params).forEach(k => { str = str.split('{' + k + '}').join(params[k]); });
+    }
+    return str;
+}
+
+// Sabit HTML metinlerini (data-i18n / data-i18n-placeholder / data-i18n-title) aktif dile çevirir
+function applyStaticTranslations() {
+    document.documentElement.lang = state.lang;
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+    updateAuthSubmitLabel();
+    updateThemeLabel();
+}
+
+// authSubmit butonu aktif sekmeye (login/register) göre farklı metin gösterir → data-i18n'den ayrı yönetilir
+function updateAuthSubmitLabel() {
+    $('authSubmit').textContent = authMode === 'login' ? t('loginTab') : t('registerTab');
+}
+
+// Dil düğmesini bağlar: her zaman KARŞI dilin adını gösterir (tema düğmesiyle aynı desen).
+// Seçim localStorage'da kalıcı olur; o an ekranda görünen dinamik içerik yeniden çizilir.
+function bindLang() {
+    const btn = $('langToggle');
+    const label = () => { btn.textContent = state.lang === 'tr' ? 'English' : 'Türkçe'; };
+    label();
+    btn.addEventListener('click', () => {
+        state.lang = state.lang === 'tr' ? 'en' : 'tr';
+        localStorage.setItem('lang', state.lang);
+        label();
+        applyStaticTranslations();
+        refreshDynamicView();
+    });
+}
+
+// Dil değişince, o an ekranda görünen dinamik (JS tarafından üretilmiş) içerikleri yeniden çizer.
+// Statik HTML zaten applyStaticTranslations() ile çevrilir; burada yalnızca veriye bağlı kısımlar var.
+function refreshDynamicView() {
+    renderFileList();
+    if (!state.selectedId) return;
+    const file = state.files.find(f => f.id === state.selectedId);
+    $('detailMeta').textContent = file
+        ? t('detailMetaLine', { format: file.detectedFormat || t('unknownFormat'), lines: file.lineCount, kb: (file.sizeBytes / 1024).toFixed(1) })
+        : '';
+    if (state.stats) {
+        renderStats(state.stats);
+        renderCharts(state.stats);
+        renderGroups(state.stats);
+    }
+    loadEntries(state.selectedId, $('levelFilter').value);
+    setAnalyzeButtonState($('analyzeBtn').dataset.analyzed === 'true');
+    renderHistory(state.analyses);
+}
+
+// Sayfa yüklenince: her zaman dil/tema/sekme/yükleme/giriş olaylarını bağla, sonra oturumu doğrula
 document.addEventListener('DOMContentLoaded', async () => {
     $('providerBadge').textContent = 'Spring AI';
+    applyStaticTranslations();
+    bindLang();
     bindTheme();
     bindTabs();
     bindUpload();
@@ -31,13 +302,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 const TOKEN_KEY = 'authToken';
 const token = () => localStorage.getItem(TOKEN_KEY);
-const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+const setToken = (tok) => localStorage.setItem(TOKEN_KEY, tok);
 const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
 // Token varsa Authorization header'ı üretir (yoksa boş nesne)
 function authHeaders() {
-    const t = token();
-    return t ? { Authorization: 'Bearer ' + t } : {};
+    const tok = token();
+    return tok ? { Authorization: 'Bearer ' + tok } : {};
 }
 
 /**
@@ -51,7 +322,7 @@ async function api(url, opts = {}) {
     if (res.status === 401) {
         clearToken();
         showLogin();
-        throw new Error('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
+        throw new Error(t('sessionExpired'));
     }
     return res;
 }
@@ -83,7 +354,7 @@ function setAuthMode(mode) {
     authMode = mode;
     $('authTabs').querySelectorAll('.auth-tab').forEach(b =>
         b.classList.toggle('active', b.dataset.authTab === mode));
-    $('authSubmit').textContent = mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+    updateAuthSubmitLabel();
     $('authError').textContent = '';
 }
 
@@ -168,17 +439,19 @@ function hideLogin() {
 // Tema düğmesini bağlar; seçim localStorage'da saklanır, grafikler yeniden boyanır
 function bindTheme() {
     const btn = $('themeToggle');
-    const label = () => {
-        btn.textContent = document.documentElement.dataset.theme === 'dark' ? 'Açık Tema' : 'Koyu Tema';
-    };
-    label();
+    updateThemeLabel();
     btn.addEventListener('click', () => {
         const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
         document.documentElement.dataset.theme = next;
         localStorage.setItem('theme', next);
-        label();
+        updateThemeLabel();
         if (state.stats) renderCharts(state.stats);   // Grafik renkleri yeni temaya uysun
     });
+}
+
+// Tema düğmesinin metnini günceller (dil değişince de çağrılır, bkz. applyStaticTranslations)
+function updateThemeLabel() {
+    $('themeToggle').textContent = document.documentElement.dataset.theme === 'dark' ? t('lightTheme') : t('darkTheme');
 }
 
 // Aktif temanın CSS değişkenlerini okur (grafikler CSS ile aynı paleti kullansın)
@@ -233,7 +506,7 @@ function bindUpload() {
 async function uploadFile(file) {
     const status = $('uploadStatus');
     status.className = 'upload-status muted';
-    status.textContent = `"${file.name}" yükleniyor ve ayrıştırılıyor...`;
+    status.textContent = t('uploadingStatus', { name: file.name });
 
     const form = new FormData();
     form.append('file', file);
@@ -243,7 +516,7 @@ async function uploadFile(file) {
         if (!res.ok) throw await problem(res);
         const summary = await res.json();
         status.className = 'upload-status ok';
-        status.textContent = `"${summary.filename}" yüklendi — ${summary.lineCount} satır, ${summary.errorCount} hata.`;
+        status.textContent = t('uploadedStatus', { name: summary.filename, lines: summary.lineCount, errors: summary.errorCount });
         await loadFiles();
         selectFile(summary.id);   // Yeni yükleneni otomatik seç
     } catch (err) {
@@ -270,18 +543,18 @@ async function loadFiles() {
 function renderFileList() {
     const box = $('fileList');
     if (!state.files.length) {
-        box.innerHTML = '<p class="empty muted">Henüz dosya yok. Yukarıdan bir log yükleyin.</p>';
+        box.innerHTML = `<p class="empty muted">${t('noFilesYet')}</p>`;
         return;
     }
     box.innerHTML = state.files.map(f => `
         <div class="file-item ${f.id === state.selectedId ? 'selected' : ''}" data-id="${f.id}">
             <div class="fi-top">
                 <div class="fi-name">${esc(f.filename)}</div>
-                <button class="fi-del" data-del="${f.id}" title="Bu logu ve analizlerini sil">Sil</button>
+                <button class="fi-del" data-del="${f.id}" title="${t('deleteTitle')}">${t('delete')}</button>
             </div>
             <div class="fi-meta">
                 <span class="fi-format">${esc(f.detectedFormat || '—')}</span>
-                <span class="fi-counts">${f.errorCount} hata · ${f.warnCount} uyarı</span>
+                <span class="fi-counts">${t('fileCounts', { errors: f.errorCount, warns: f.warnCount })}</span>
             </div>
             <span class="fi-status ${f.status === 'ANALYZED' ? 'analyzed' : ''}">${statusLabel(f.status)}</span>
         </div>`).join('');
@@ -296,8 +569,8 @@ function renderFileList() {
 // DELETE /api/logs/{id} → log dosyasını ve bağlı verilerini siler
 async function deleteFile(id) {
     const file = state.files.find(f => f.id === id);
-    const name = file ? file.filename : 'bu log';
-    if (!confirm(`"${name}" ve tüm analizleri kalıcı olarak silinsin mi?`)) return;
+    const name = file ? file.filename : t('thisLog');
+    if (!confirm(t('deleteConfirm', { name }))) return;
     try {
         const res = await api(`/api/logs/${id}`, { method: 'DELETE' });
         if (!res.ok) throw await problem(res);
@@ -310,7 +583,7 @@ async function deleteFile(id) {
         }
         await loadFiles();
     } catch (err) {
-        alert('Silinemedi: ' + err.message);
+        alert(t('deleteFailed', { msg: err.message }));
     }
 }
 
@@ -327,9 +600,9 @@ async function selectFile(id) {
     const file = state.files.find(f => f.id === id);
     $('detailFilename').textContent = file ? file.filename : '';
     $('detailMeta').textContent = file
-        ? `${file.detectedFormat || 'bilinmeyen format'} · ${file.lineCount} satır · ${(file.sizeBytes / 1024).toFixed(1)} KB`
+        ? t('detailMetaLine', { format: file.detectedFormat || t('unknownFormat'), lines: file.lineCount, kb: (file.sizeBytes / 1024).toFixed(1) })
         : '';
-    $('analyzeBtn').onclick = () => analyzeFile(id);
+    $('analyzeBtn').onclick = () => onAnalyzeClick(id);
     $('analysisArea').innerHTML = '';
 
     // İstatistik ve geçmiş analizleri paralel getir
@@ -338,6 +611,7 @@ async function selectFile(id) {
         api(`/api/analyses?fileId=${id}`).then(r => r.json()),
     ]);
     state.stats = stats;
+    state.analyses = analyses;      // Dil değişince yeniden çizebilmek için sakla
     renderStats(stats);
     renderCharts(stats);            // Dashboard grafikleri
     renderGroups(stats);            // Katlanabilir hata grupları (Kayıtlar sekmesi)
@@ -348,6 +622,7 @@ async function selectFile(id) {
     filter.onchange = () => loadEntries(id, filter.value);
     loadEntries(id, '');
 
+    setAnalyzeButtonState(analyses.length > 0);   // Zaten analiz edilmişse butonu "Yeniden Analiz Et"e çevir
     renderHistory(analyses);
 }
 
@@ -355,10 +630,10 @@ async function selectFile(id) {
 function renderStats(stats) {
     const d = stats.levelDistribution || {};
     $('statChips').innerHTML = `
-        ${stat('Toplam', stats.totalEntries, '')}
-        ${stat('Hata', (d.ERROR || 0) + (d.FATAL || 0), 'error')}
-        ${stat('Uyarı', d.WARN || 0, 'warn')}
-        ${stat('Grup', (stats.errorGroups || []).length, 'accent')}`;
+        ${stat(t('statTotal'), stats.totalEntries, '')}
+        ${stat(t('statErrors'), (d.ERROR || 0) + (d.FATAL || 0), 'error')}
+        ${stat(t('statWarnings'), d.WARN || 0, 'warn')}
+        ${stat(t('statGroups'), (stats.errorGroups || []).length, 'accent')}`;
 }
 
 // Tekrarlanan hata gruplarını katlanabilir kartlar olarak çizer (başlığa tıkla → mesajı aç/kapa)
@@ -367,18 +642,18 @@ function renderGroups(stats) {
     const box = $('errorGroups');
     if (!groups.length) { box.innerHTML = ''; return; }
     box.innerHTML = `
-        <h4 class="section-heading" style="margin-bottom:12px">Tekrarlanan Hata Grupları</h4>
+        <h4 class="section-heading" style="margin-bottom:12px">${t('repeatedGroupsHeading')}</h4>
         <div class="group-list">
         ${groups.slice(0, 5).map((g, i) => `
             <div class="eg-item">
                 <div class="eg-head" data-eg="${i}">
-                    <span class="eg-type">${esc(g.exceptionType || 'istisna yok')}</span>
-                    ${g.knowledgeHint ? '<span class="eg-known">Bilinen hata</span>' : ''}
+                    <span class="eg-type">${esc(g.exceptionType || t('noException'))}</span>
+                    ${g.knowledgeHint ? `<span class="eg-known">${t('knownError')}</span>` : ''}
                     <span class="eg-count">×${g.occurrenceCount}</span>
                     <span class="eg-chevron">&#9660;</span>
                 </div>
                 <div class="eg-msg hidden">
-                    <div>${esc(g.sampleMessage || '')}${g.sampleLineNumber ? ` <em>(satır ${g.sampleLineNumber})</em>` : ''}</div>
+                    <div>${esc(g.sampleMessage || '')}${g.sampleLineNumber ? ` <em>${t('lineNumSuffix', { n: g.sampleLineNumber })}</em>` : ''}</div>
                     ${knowledgeHintHtml(g.knowledgeHint)}
                 </div>
             </div>`).join('')}
@@ -395,12 +670,12 @@ function renderGroups(stats) {
 // AI olmadan, yalnızca fingerprint eşleşmesiyle hesaplanır (bkz. StatsServiceImpl.buildKnowledgeHint).
 function knowledgeHintHtml(hint) {
     if (!hint) return '';
-    const extra = hint.pastFileCount > 1 ? ` (toplam ${hint.pastFileCount} farklı dosyada görülmüş)` : '';
+    const extra = hint.pastFileCount > 1 ? t('knowledgeSeenInMore', { count: hint.pastFileCount }) : '';
     const solutionPart = hint.pastSolution
-        ? `<div class="kh-solution"><strong>O zamanki çözüm:</strong> ${mdLite(hint.pastSolution)}</div>`
-        : '<div class="kh-solution muted">O dosya için henüz bir yapay zeka analizi yapılmamış.</div>';
+        ? `<div class="kh-solution"><strong>${t('knowledgeSolutionLabel')}</strong> ${mdLite(hint.pastSolution)}</div>`
+        : `<div class="kh-solution muted">${t('knowledgeNoAnalysis')}</div>`;
     return `<div class="knowledge-hint">
-        <div class="kh-title">Bu hatayı daha önce <strong>${esc(hint.sourceFilename)}</strong> dosyasında görmüştünüz${extra} — ${formatDate(hint.lastSeenBefore)}</div>
+        <div class="kh-title">${t('knowledgeTitle', { filename: esc(hint.sourceFilename), extra, date: formatDate(hint.lastSeenBefore) })}</div>
         ${solutionPart}
     </div>`;
 }
@@ -410,7 +685,7 @@ function knowledgeHintHtml(hint) {
 // Seçili logun istatistiklerinden 3 grafik çizer. Renkler status/semantik (dataviz ilkeleri).
 function renderCharts(stats) {
     destroyCharts();                 // Önceki grafikleri temizle (canvas yeniden kullanım hatasını önler)
-    const t = themeColors();
+    const col = themeColors();       // NOT: 't' değil — global çeviri fonksiyonu t() ile ÇAKIŞMASIN diye 'col'
 
     // 1) Seviye dağılımı — doughnut (kimlik: her seviye kendi status rengi; legend + etiket ile)
     const dist = stats.levelDistribution || {};
@@ -423,18 +698,18 @@ function renderCharts(stats) {
                 labels: levels,
                 datasets: [{
                     data: levels.map(l => dist[l]),
-                    backgroundColor: levels.map(l => levelColor(l, t)),
-                    borderColor: t.surface,   // Dilimler arası 2px yüzey boşluğu (dataviz mark spec)
+                    backgroundColor: levels.map(l => levelColor(l, col)),
+                    borderColor: col.surface,   // Dilimler arası 2px yüzey boşluğu (dataviz mark spec)
                     borderWidth: 2,
                 }],
             },
             options: {
                 responsive: true, maintainAspectRatio: false, cutout: '68%',
-                plugins: { legend: { position: 'bottom', labels: { color: t.muted, boxWidth: 10, padding: 10, font: { size: 11 } } } },
+                plugins: { legend: { position: 'bottom', labels: { color: col.muted, boxWidth: 10, padding: 10, font: { size: 11 } } } },
             },
         });
     } else {
-        setEmpty('levelChart', 'Veri yok');
+        setEmpty('levelChart', t('chartNoData'));
     }
 
     // 2) En sık istisnalar — yatay bar (büyüklük: tek seri, vurgu rengi → legend yok, başlık adlandırır)
@@ -445,19 +720,19 @@ function renderCharts(stats) {
             type: 'bar',
             data: {
                 labels: exc.map(e => truncLabel(shortType(e.type), 20)),   // Uzun adlar kırpılır; tam adı tooltip'te
-                datasets: [{ data: exc.map(e => e.count), backgroundColor: t.accent, borderRadius: 4, maxBarThickness: 22 }],
+                datasets: [{ data: exc.map(e => e.count), backgroundColor: col.accent, borderRadius: 4, maxBarThickness: 22 }],
             },
             options: {
                 responsive: true, maintainAspectRatio: false, indexAxis: 'y',
                 plugins: { legend: { display: false }, tooltip: { callbacks: { title: (i) => exc[i[0].dataIndex].type } } },
                 scales: {
-                    x: { beginAtZero: true, ticks: { color: t.muted, precision: 0 }, grid: { color: t.grid, drawTicks: false } },
-                    y: { ticks: { color: t.muted }, grid: { display: false } },
+                    x: { beginAtZero: true, ticks: { color: col.muted, precision: 0 }, grid: { color: col.grid, drawTicks: false } },
+                    y: { ticks: { color: col.muted }, grid: { display: false } },
                 },
             },
         });
     } else {
-        setEmpty('exceptionsChart', 'İstisna yok');
+        setEmpty('exceptionsChart', t('chartNoExceptions'));
     }
 
     // 3) Zaman serisi — çizgi (değişim: 2 seri WARN/ERROR, legend her zaman var)
@@ -474,27 +749,27 @@ function renderCharts(stats) {
             data: {
                 labels: tl.map(b => hhmm(b.minute)),
                 datasets: [
-                    { label: 'WARN', data: tl.map(b => b.warnCount), borderColor: t.warn, backgroundColor: t.warn, borderWidth: 2, tension: .3, pointRadius: 3 },
+                    { label: 'WARN', data: tl.map(b => b.warnCount), borderColor: col.warn, backgroundColor: col.warn, borderWidth: 2, tension: .3, pointRadius: 3 },
                     {
-                        label: 'ERROR', data: tl.map(b => b.errorCount), borderColor: t.error, backgroundColor: t.error,
+                        label: 'ERROR', data: tl.map(b => b.errorCount), borderColor: col.error, backgroundColor: col.error,
                         borderWidth: 2, tension: .3,
                         pointRadius: tl.map(b => inStorm(b.minute) ? 7 : 3),
-                        pointBorderColor: tl.map(b => inStorm(b.minute) ? t.surface : t.error),
+                        pointBorderColor: tl.map(b => inStorm(b.minute) ? col.surface : col.error),
                         pointBorderWidth: tl.map(b => inStorm(b.minute) ? 2 : 1),
                     },
                 ],
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { color: t.muted, boxWidth: 10, padding: 10 } } },
+                plugins: { legend: { position: 'bottom', labels: { color: col.muted, boxWidth: 10, padding: 10 } } },
                 scales: {
-                    x: { ticks: { color: t.muted, maxRotation: 0, autoSkip: true }, grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { color: t.muted, precision: 0 }, grid: { color: t.grid, drawTicks: false } },
+                    x: { ticks: { color: col.muted, maxRotation: 0, autoSkip: true }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: col.muted, precision: 0 }, grid: { color: col.grid, drawTicks: false } },
                 },
             },
         });
     } else {
-        setEmpty('timelineChart', 'Zaman damgalı WARN/ERROR yok');
+        setEmpty('timelineChart', t('chartNoTimeline'));
     }
 
     renderTransition(stats);         // WARN→ERROR geçiş içgörüsü
@@ -506,10 +781,10 @@ function renderTransition(stats) {
     const el = $('transitionInsight');
     const tr = stats.warnToErrorTransition;
     if (!tr) { el.innerHTML = ''; return; }
-    const gapTxt = tr.gapMinutes > 0 ? `${tr.gapMinutes} dakika sonra` : 'aynı dakikada';
+    const gapTxt = tr.gapMinutes > 0 ? t('gapMinutesLater', { n: tr.gapMinutes }) : t('sameMinute');
     el.innerHTML = `<div class="insight">
-        <strong>WARN&#8594;ERROR Geçişi</strong>
-        <span>Uyarılar ${hhmm(tr.firstWarn)} itibarıyla başladı ve ${gapTxt} (${hhmm(tr.firstError)}) hataya dönüştü.</span>
+        <strong>${t('transitionHeading')}</strong>
+        <span>${t('transitionSentence', { firstWarn: hhmm(tr.firstWarn), gap: gapTxt, firstError: hhmm(tr.firstError) })}</span>
     </div>`;
 }
 
@@ -520,14 +795,14 @@ function renderStorm(stats) {
     const s = stats.errorStorm;
     if (!s) { el.innerHTML = ''; return; }
     const ratioTxt = s.peakToBaselineRatio != null
-        ? ` — dosya ortalamasının (~${s.baselineAverage.toFixed(1)}/dk) yaklaşık ${s.peakToBaselineRatio.toFixed(1)} katı`
+        ? t('stormRatioSuffix', { avg: s.baselineAverage.toFixed(1), ratio: s.peakToBaselineRatio.toFixed(1) })
         : '';
     const rangeTxt = s.stormStartMinute === s.stormEndMinute
         ? hhmm(s.stormStartMinute)
         : `${hhmm(s.stormStartMinute)}–${hhmm(s.stormEndMinute)}`;
     el.innerHTML = `<div class="insight storm">
-        <strong>Hata Fırtınası Tespit Edildi</strong>
-        <span>${rangeTxt} aralığında hata oranı dakikada ${s.peakErrorCount} hataya sıçradı${ratioTxt}.</span>
+        <strong>${t('stormHeading')}</strong>
+        <span>${t('stormSentence', { range: rangeTxt, peak: s.peakErrorCount, ratioTxt })}</span>
     </div>`;
 }
 
@@ -538,11 +813,11 @@ function destroyCharts() {
 }
 
 // Log seviyesine göre status rengi (temaya göre; WARN kırmızıdan ayrık — dataviz doğrulaması)
-function levelColor(level, t) {
+function levelColor(level, col) {
     return {
-        FATAL: '#7f1d1d', ERROR: t.error, WARN: t.warn,
-        INFO: t.info, DEBUG: t.debug, TRACE: '#cbd5e1', UNKNOWN: t.debug,
-    }[level] || t.debug;
+        FATAL: '#7f1d1d', ERROR: col.error, WARN: col.warn,
+        INFO: col.info, DEBUG: col.debug, TRACE: '#cbd5e1', UNKNOWN: col.debug,
+    }[level] || col.debug;
 }
 
 // Veri olmayan grafik için canvas'ı gizleyip mesaj gösterir (canvas'ı DOM'dan silmeden)
@@ -567,13 +842,13 @@ function clearEmpty(canvasId) {
 // GET /api/logs/{id}/entries?level= → tabloyu doldurur
 async function loadEntries(fileId, level) {
     const box = $('entriesTable');
-    box.innerHTML = '<div class="entry-note muted">yükleniyor...</div>';
+    box.innerHTML = `<div class="entry-note muted">${t('loadingEllipsis')}</div>`;
     try {
         const url = `/api/logs/${fileId}/entries` + (level ? `?level=${level}` : '');
         const entries = await api(url).then(r => r.json());
         renderEntries(entries);
     } catch {
-        box.innerHTML = '<div class="entry-note muted">Kayıtlar yüklenemedi.</div>';
+        box.innerHTML = `<div class="entry-note muted">${t('entriesLoadFailed')}</div>`;
     }
 }
 
@@ -581,7 +856,7 @@ async function loadEntries(fileId, level) {
 function renderEntries(entries) {
     const box = $('entriesTable');
     if (!entries.length) {
-        box.innerHTML = '<div class="entry-note muted">Bu filtreye uygun kayıt yok.</div>';
+        box.innerHTML = `<div class="entry-note muted">${t('noMatchingEntries')}</div>`;
         return;
     }
     const rows = entries.slice(0, 300).map(e => `
@@ -590,7 +865,7 @@ function renderEntries(entries) {
             <span><span class="lvl-badge ${e.level || 'UNKNOWN'}">${e.level || '—'}</span></span>
             <span class="entry-msg">${esc(e.message || '')}${e.exceptionType ? ` <span class="exc">${esc(shortType(e.exceptionType))}</span>` : ''}${e.hasStackTrace ? ' <span class="muted">(stack trace)</span>' : ''}</span>
         </div>`).join('');
-    const more = entries.length > 300 ? `<div class="entry-note muted">... ve ${entries.length - 300} kayıt daha</div>` : '';
+    const more = entries.length > 300 ? `<div class="entry-note muted">${t('moreEntries', { n: entries.length - 300 })}</div>` : '';
     box.innerHTML = rows + more;
 }
 
@@ -614,9 +889,9 @@ function jumpToLine(line) {
 }
 
 // Tam nitelikli istisna/logger adından yalnızca son parçayı (sınıf adı) alır
-function shortType(t) {
-    if (!t) return '—';
-    const parts = t.split('.');
+function shortType(type) {
+    if (!type) return '—';
+    const parts = type.split('.');
     return parts[parts.length - 1];
 }
 
@@ -627,21 +902,44 @@ function truncLabel(s, max) {
 
 // ISO zamanı SS:dd biçimine çevirir (zaman serisi ekseni için)
 function hhmm(iso) {
-    try { return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); }
+    try { return new Date(iso).toLocaleTimeString(t('locale'), { hour: '2-digit', minute: '2-digit' }); }
     catch { return iso; }
 }
 
 /* ---------------- Analiz ---------------- */
 
+// Analiz butonuna tıklanınca çağrılır. Dosya daha önce analiz edilmişse (buton "Yeniden Analiz Et"
+// durumundaysa) kazara ikinci bir analiz üretilmesini önlemek için önce onay ister.
+function onAnalyzeClick(id) {
+    const btn = $('analyzeBtn');
+    if (btn.dataset.analyzed === 'true') {
+        const ok = confirm(t('reanalyzeConfirm'));
+        if (!ok) return;
+    }
+    analyzeFile(id);
+}
+
+// Analiz butonunun görünümünü dosyanın analiz durumuna göre ayarlar: hiç analiz yoksa vurgulu
+// "Yapay Zeka ile Analiz Et" (btn-accent); en az bir analiz varsa soluk "Yeniden Analiz Et" (btn-outline)
+// — bu, kazara tekrar tıklamayı görsel olarak caydırır ama bilinçli tekrar analizi engellemez.
+function setAnalyzeButtonState(hasAnalyses) {
+    const btn = $('analyzeBtn');
+    btn.dataset.analyzed = hasAnalyses ? 'true' : 'false';
+    btn.textContent = hasAnalyses ? t('reanalyzeBtn') : t('analyzeBtn');
+    btn.classList.toggle('btn-accent', !hasAnalyses);
+    btn.classList.toggle('btn-outline', hasAnalyses);
+}
+
 // POST /api/logs/{id}/analyze → yapay zeka analizini başlatır
 async function analyzeFile(id) {
     const area = $('analysisArea');
     const btn = $('analyzeBtn');
+    const wasAnalyzed = btn.dataset.analyzed === 'true';   // Hata durumunda butonu buna göre geri yükle
     btn.disabled = true;
-    btn.textContent = 'Analiz ediliyor...';
+    btn.textContent = t('analyzingBtn');
     showTab('analysis');
     area.innerHTML = `<div class="loading"><div class="spinner"></div>
-        <span>Yapay zeka analiz ediyor... (10-20 saniye sürebilir)</span></div>`;
+        <span>${t('analyzingArea')}</span></div>`;
 
     try {
         const res = await api(`/api/logs/${id}/analyze`, { method: 'POST' });
@@ -650,14 +948,16 @@ async function analyzeFile(id) {
         $('providerBadge').textContent = analysis.model || 'Spring AI';
         // Yeni sonucu göster ve geçmişi/listeyi tazele (durum rozetleri değişmiş olabilir)
         const analyses = await api(`/api/analyses?fileId=${id}`).then(r => r.json());
+        state.analyses = analyses;
         renderHistory(analyses);
+        setAnalyzeButtonState(true);   // Başarılı → artık "Yeniden Analiz Et"
         loadFiles();
     } catch (err) {
-        area.innerHTML = `<div class="analysis-card"><strong style="color:var(--danger)">Analiz başarısız</strong>
+        area.innerHTML = `<div class="analysis-card"><strong style="color:var(--danger)">${t('analysisFailed')}</strong>
             <p class="muted" style="margin:0">${esc(err.message)}</p></div>`;
+        setAnalyzeButtonState(wasAnalyzed);   // Başarısız → deneme öncesi duruma dön
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Yapay Zeka ile Analiz Et';
     }
 }
 
@@ -665,11 +965,10 @@ async function analyzeFile(id) {
 function renderHistory(analyses) {
     const area = $('analysisArea');
     if (!analyses.length) {
-        area.innerHTML = `<div class="empty-analysis">Bu log için henüz analiz yapılmadı.
-            Yukarıdaki "Yapay Zeka ile Analiz Et" butonuyla başlatabilirsiniz.</div>`;
+        area.innerHTML = `<div class="empty-analysis">${t('noAnalysisYet', { btn: t('analyzeBtn') })}</div>`;
     } else {
         area.innerHTML = analyses.map(renderAnalysisCard).join('')
-            + (analyses.length > 1 ? `<div class="history-note">${analyses.length} analiz — en yenisi üstte</div>` : '');
+            + (analyses.length > 1 ? `<div class="history-note">${t('historyNote', { n: analyses.length })}</div>` : '');
         bindAnalysisEvents(area);
     }
     renderChat(analyses);          // Analiz varsa sohbet arayüzünü kur
@@ -681,41 +980,41 @@ function renderAnalysisCard(a) {
     const cc = confClass(a.confidence || 0);   // Güven seviyesine göre renk sınıfı (rozet + çubuk aynı rengi kullanır)
     const evidence = (a.evidenceLines || []).length
         ? `<div class="evidence-row">${a.evidenceLines.map(n =>
-              `<span class="ev-chip" data-line="${n}" title="Satıra git">satır ${n}</span>`).join('')}</div>`
+              `<span class="ev-chip" data-line="${n}" title="${t('goToLineTitle')}">${t('evidenceChip', { n })}</span>`).join('')}</div>`
         : '';
     return `
     <div class="analysis-card">
         <div class="analysis-top">
             <span class="badge ${cc}">${priorityLabel(a.priority)}</span>
             <div class="confidence">
-                <div class="conf-lbl">Güven: %${conf}</div>
+                <div class="conf-lbl">${t('confidenceLabel', { pct: conf })}</div>
                 <div class="conf-bar"><div class="conf-fill ${cc}" style="width:${conf}%"></div></div>
             </div>
-            <button type="button" class="btn-sm" data-pdf="${a.id}" title="Analizi PDF olarak indir">PDF İndir</button>
+            <button type="button" class="btn-sm" data-pdf="${a.id}" title="${t('downloadPdfTitle')}">${t('downloadPdfBtn')}</button>
         </div>
         <div>
-            <div class="analysis-label">Özet</div>
+            <div class="analysis-label">${t('summaryLabel')}</div>
             <div class="analysis-text">${mdLite(a.summary)}</div>
         </div>
         <div class="accordion">
             <div class="accordion-head" data-acc>
-                <span class="analysis-label">Olası Kök Neden</span>
+                <span class="analysis-label">${t('rootCauseLabel')}</span>
                 <span class="eg-chevron">&#9650;</span>
             </div>
             <div class="analysis-text">${mdLite(a.rootCause)}</div>
         </div>
         <div class="accordion">
             <div class="accordion-head" data-acc>
-                <span class="analysis-label">Çözüm Önerisi</span>
+                <span class="analysis-label">${t('solutionLabel')}</span>
                 <span class="eg-chevron">&#9650;</span>
             </div>
             <div class="analysis-text">${mdLite(a.solution)}</div>
         </div>
         ${evidence}
         <div class="analysis-foot">
-            <span>Model: ${esc(a.model || '—')}</span>
-            <span>Süre: ${a.durationMs ?? '—'} ms</span>
-            <span>Token: ${a.promptTokens ?? '—'} + ${a.completionTokens ?? '—'}</span>
+            <span>${t('modelLabel', { model: esc(a.model || '—') })}</span>
+            <span>${t('durationLabel', { ms: a.durationMs ?? '—' })}</span>
+            <span>${t('tokensLabel', { p: a.promptTokens ?? '—', c: a.completionTokens ?? '—' })}</span>
             <span>${formatDate(a.createdAt)}</span>
         </div>
     </div>`;
@@ -745,13 +1044,13 @@ async function downloadPdf(id) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'analiz-raporu.pdf';
+        a.download = t('pdfFilename');
         document.body.appendChild(a);
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
     } catch (err) {
-        alert('PDF indirilemedi: ' + err.message);
+        alert(t('pdfDownloadFailed', { msg: err.message }));
     }
 }
 
@@ -768,7 +1067,7 @@ function confClass(confidence) {
 function renderChat(analyses) {
     const area = $('chatArea');
     if (!analyses.length) {
-        area.innerHTML = '<div class="empty-analysis">Sohbet için önce bir analiz gerekir.</div>';
+        area.innerHTML = `<div class="empty-analysis">${t('chatNeedsAnalysis')}</div>`;
         state.chatAnalysisId = null;
         return;
     }
@@ -777,11 +1076,11 @@ function renderChat(analyses) {
     state.chatAnalysisId = latest.id;
     area.innerHTML = `
         <div class="chat-card">
-            <h4 class="section-heading" style="margin:0">Log ile Sohbet <span class="chat-hint muted">(en son analiz bağlamında)</span></h4>
+            <h4 class="section-heading" style="margin:0">${t('chatHeading')} <span class="chat-hint muted">${t('chatHint')}</span></h4>
             <div id="chatMessages" class="chat-messages"></div>
             <form id="chatForm" class="chat-input" autocomplete="off">
-                <input id="chatInput" type="text" maxlength="2000" placeholder="Bu log hakkında bir soru sorun...">
-                <button type="submit" class="btn-accent">Gönder</button>
+                <input id="chatInput" type="text" maxlength="2000" placeholder="${t('chatPlaceholder')}">
+                <button type="submit" class="btn-accent">${t('chatSend')}</button>
             </form>
         </div>`;
     $('chatForm').addEventListener('submit', onChatSubmit);
@@ -799,7 +1098,7 @@ async function loadChatHistory(analysisId) {
 function renderChatMessages(msgs) {
     const box = $('chatMessages');
     if (!msgs || !msgs.length) {
-        box.innerHTML = '<div class="chat-empty muted">Henüz mesaj yok. İlk soruyu sorun.</div>';
+        box.innerHTML = `<div class="chat-empty muted">${t('chatNoMessages')}</div>`;
         return;
     }
     box.innerHTML = msgs.map(chatBubble).join('');
@@ -839,7 +1138,7 @@ async function onChatSubmit(e) {
         appendBubble(reply);
     } catch (err) {
         loading.remove();
-        appendBubble({ role: 'ASSISTANT', content: 'Hata: ' + err.message });
+        appendBubble({ role: 'ASSISTANT', content: t('chatError', { msg: err.message }) });
     } finally {
         btn.disabled = false; input.disabled = false; input.focus();
     }
@@ -859,7 +1158,7 @@ function appendLoadingBubble() {
     const box = $('chatMessages');
     const div = document.createElement('div');
     div.className = 'chat-bubble assistant';
-    div.innerHTML = '<div class="chat-content"><span class="chat-typing">yanıtlıyor...</span></div>';
+    div.innerHTML = `<div class="chat-content"><span class="chat-typing">${t('chatTyping')}</span></div>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
     return div;
@@ -872,20 +1171,20 @@ function stat(label, value, cls) {
     return `<div class="stat-card"><div class="stat-val ${cls}">${value}</div><div class="stat-lbl">${label}</div></div>`;
 }
 
-// Öncelik enum'unu Türkçe etikete çevirir
+// Öncelik enum'unu aktif dile çevirir
 function priorityLabel(p) {
-    return { CRITICAL: 'KRİTİK', HIGH: 'YÜKSEK', MEDIUM: 'ORTA', LOW: 'DÜŞÜK' }[p] || p;
+    return I18N[state.lang].priority[p] || p;
 }
 
-// Durum enum'unu Türkçe etikete çevirir
+// Durum enum'unu aktif dile çevirir
 function statusLabel(s) {
-    return { UPLOADED: 'yüklendi', PARSED: 'ayrıştırıldı', ANALYZED: 'analiz edildi', FAILED: 'hata' }[s] || s;
+    return I18N[state.lang].status[s] || s;
 }
 
 // ISO tarihi okunur biçime çevirir
 function formatDate(iso) {
     if (!iso) return '—';
-    try { return new Date(iso).toLocaleString('tr-TR'); } catch { return iso; }
+    try { return new Date(iso).toLocaleString(t('locale')); } catch { return iso; }
 }
 
 // XSS'e karşı metni güvenli hale getirir (kullanıcı/model içeriği HTML'e basılmadan önce)

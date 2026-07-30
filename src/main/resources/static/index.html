@@ -19,16 +19,17 @@
 </head>
 <body>
 
-<!-- Üst başlık: sol = uygulama adı, sağ = model rozeti + tema düğmesi -->
+<!-- Üst başlık: sol = uygulama adı, sağ = model rozeti + tema/dil düğmesi -->
 <header class="app-header">
     <div>
         <h1 class="app-title">AI Log Analyzer</h1>
-        <p class="app-subtitle">Log dosyalarını yapay zeka ile analiz edin</p>
+        <p class="app-subtitle" data-i18n="appSubtitle">Log dosyalarını yapay zeka ile analiz edin</p>
     </div>
     <div class="header-right">
-        <span id="providerBadge" class="provider-badge" title="Aktif yapay zeka modeli"></span>
-        <span id="userChip" class="user-chip hidden" title="Giriş yapan kullanıcı"></span>
-        <button id="logoutBtn" class="theme-toggle hidden" type="button">Çıkış Yap</button>
+        <span id="providerBadge" class="provider-badge" data-i18n-title="providerBadgeTitle" title="Aktif yapay zeka modeli"></span>
+        <span id="userChip" class="user-chip hidden" data-i18n-title="userChipTitle" title="Giriş yapan kullanıcı"></span>
+        <button id="logoutBtn" class="theme-toggle hidden" type="button" data-i18n="logout">Çıkış Yap</button>
+        <button id="langToggle" class="theme-toggle" type="button"></button>
         <button id="themeToggle" class="theme-toggle" type="button"></button>
     </div>
 </header>
@@ -38,19 +39,19 @@
     <div class="auth-card">
         <div class="auth-brand">
             <h2 class="auth-title">AI Log Analyzer</h2>
-            <p class="auth-sub muted">Devam etmek için giriş yapın</p>
+            <p class="auth-sub muted" data-i18n="authSubtitle">Devam etmek için giriş yapın</p>
         </div>
         <div class="auth-tabs" id="authTabs">
-            <button class="auth-tab active" type="button" data-auth-tab="login">Giriş Yap</button>
-            <button class="auth-tab" type="button" data-auth-tab="register">Kayıt Ol</button>
+            <button class="auth-tab active" type="button" data-auth-tab="login" data-i18n="loginTab">Giriş Yap</button>
+            <button class="auth-tab" type="button" data-auth-tab="register" data-i18n="registerTab">Kayıt Ol</button>
         </div>
         <form id="authForm" class="auth-form" autocomplete="off">
-            <input id="authUsername" class="auth-input" type="text" placeholder="Kullanıcı adı" required>
-            <input id="authPassword" class="auth-input" type="password" placeholder="Şifre" required>
+            <input id="authUsername" class="auth-input" type="text" data-i18n-placeholder="usernamePlaceholder" placeholder="Kullanıcı adı" required>
+            <input id="authPassword" class="auth-input" type="password" data-i18n-placeholder="passwordPlaceholder" placeholder="Şifre" required>
             <p id="authError" class="auth-error"></p>
             <button type="submit" id="authSubmit" class="btn-primary auth-submit">Giriş Yap</button>
         </form>
-        <p class="auth-hint muted">Varsayılan yönetici: <code>admin / admin123</code></p>
+        <p class="auth-hint muted" data-i18n="authHint">Varsayılan yönetici: <code>admin / admin123</code></p>
     </div>
 </div>
 
@@ -58,11 +59,11 @@
 
     <!-- Yükleme alanı (sürükle-bırak + dosya seç) -->
     <section class="upload-card" id="dropZone">
-        <h2 class="upload-title">Log dosyası yükleyin</h2>
-        <p class="upload-subtitle">.log / .txt — sürükleyip bırakın veya seçin (maks. 10 MB)</p>
+        <h2 class="upload-title" data-i18n="uploadTitle">Log dosyası yükleyin</h2>
+        <p class="upload-subtitle" data-i18n="uploadSubtitle">.log / .txt — sürükleyip bırakın veya seçin (maks. 10 MB)</p>
         <label class="btn-primary">
             <input type="file" id="fileInput" accept=".log,.txt" hidden>
-            Dosya Seç
+            <span data-i18n="chooseFile">Dosya Seç</span>
         </label>
         <p id="uploadStatus" class="upload-status"></p>
     </section>
@@ -71,16 +72,16 @@
     <div class="grid">
 
         <aside class="left-panel">
-            <h3 class="left-heading">Yüklenen Loglar</h3>
+            <h3 class="left-heading" data-i18n="uploadedLogs">Yüklenen Loglar</h3>
             <div id="fileList" class="file-list">
-                <p class="empty muted">Henüz dosya yok. Yukarıdan bir log yükleyin.</p>
+                <p class="empty muted" data-i18n="noFilesYet">Henüz dosya yok. Yukarıdan bir log yükleyin.</p>
             </div>
         </aside>
 
         <section class="right-panel">
             <div id="detailEmpty" class="detail-empty">
-                <div class="de-title">Görüntülenecek log yok</div>
-                <div class="de-text muted">Bir log seçin veya yeni bir dosya yükleyin.</div>
+                <div class="de-title" data-i18n="noLogSelected">Görüntülenecek log yok</div>
+                <div class="de-text muted" data-i18n="noLogSelectedHint">Bir log seçin veya yeni bir dosya yükleyin.</div>
             </div>
 
             <div id="detailContent" class="hidden">
@@ -90,15 +91,15 @@
                         <h3 id="detailFilename" class="log-title">—</h3>
                         <div id="detailMeta" class="log-meta"></div>
                     </div>
-                    <button id="analyzeBtn" class="btn-accent">Yapay Zeka ile Analiz Et</button>
+                    <button id="analyzeBtn" class="btn-accent" data-i18n="analyzeBtn">Yapay Zeka ile Analiz Et</button>
                 </div>
 
                 <!-- Sekme çubuğu -->
                 <div class="tab-bar" id="tabBar">
-                    <button class="tab-btn active" data-tab="overview">Genel Bakış</button>
-                    <button class="tab-btn" data-tab="records">Kayıtlar</button>
-                    <button class="tab-btn" data-tab="analysis">Analiz</button>
-                    <button class="tab-btn" data-tab="chat">Sohbet</button>
+                    <button class="tab-btn active" data-tab="overview" data-i18n="tabOverview">Genel Bakış</button>
+                    <button class="tab-btn" data-tab="records" data-i18n="tabRecords">Kayıtlar</button>
+                    <button class="tab-btn" data-tab="analysis" data-i18n="tabAnalysis">Analiz</button>
+                    <button class="tab-btn" data-tab="chat" data-i18n="tabChat">Sohbet</button>
                 </div>
 
                 <!-- SEKME: Genel Bakış -->
@@ -106,16 +107,16 @@
                     <div id="statChips" class="stat-grid"></div>
                     <div class="charts-grid">
                         <div class="chart-card">
-                            <h4 class="chart-title">Seviye Dağılımı</h4>
+                            <h4 class="chart-title" data-i18n="chartLevelDistribution">Seviye Dağılımı</h4>
                             <div class="chart-wrap"><canvas id="levelChart"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <h4 class="chart-title">En Sık İstisnalar</h4>
+                            <h4 class="chart-title" data-i18n="chartTopExceptions">En Sık İstisnalar</h4>
                             <div class="chart-wrap"><canvas id="exceptionsChart"></canvas></div>
                         </div>
                     </div>
                     <div class="chart-card">
-                        <h4 class="chart-title">Zaman Serisi — Dakikalık WARN / ERROR</h4>
+                        <h4 class="chart-title" data-i18n="chartTimeline">Zaman Serisi — Dakikalık WARN / ERROR</h4>
                         <div class="chart-wrap wide"><canvas id="timelineChart"></canvas></div>
                     </div>
                     <div id="transitionInsight"></div>
@@ -127,9 +128,9 @@
                     <div id="errorGroups"></div>
                     <div>
                         <div class="table-heading-row">
-                            <h4 class="section-heading">Log Kayıtları</h4>
-                            <select id="levelFilter" class="filter-select" title="Seviyeye göre filtrele">
-                                <option value="">Tüm seviyeler</option>
+                            <h4 class="section-heading" data-i18n="logEntriesHeading">Log Kayıtları</h4>
+                            <select id="levelFilter" class="filter-select" data-i18n-title="levelFilterTitle" title="Seviyeye göre filtrele">
+                                <option value="" data-i18n="allLevels">Tüm seviyeler</option>
                                 <option value="FATAL">FATAL</option>
                                 <option value="ERROR">ERROR</option>
                                 <option value="WARN">WARN</option>

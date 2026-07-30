@@ -184,6 +184,16 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
 .btn-accent:hover { filter: brightness(1.08); }
 .btn-accent:disabled { background: transparent; color: var(--muted); border: 1px solid var(--border); cursor: default; filter: none; }
 
+/* İkincil eylem görünümü: "Yeniden Analiz Et" gibi zaten bir kez yapılmış işlemler için
+   (btn-accent'ten daha az vurgulu — kazara tekrar tıklamayı görsel olarak caydırır ama engellemez) */
+.btn-outline {
+    background: transparent; color: var(--muted); border: 1px solid var(--border);
+    padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent-text); }
+.btn-outline:disabled { cursor: default; opacity: .6; }
+
 /* ---------------- Sekmeler ---------------- */
 .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
 .tab-btn {
